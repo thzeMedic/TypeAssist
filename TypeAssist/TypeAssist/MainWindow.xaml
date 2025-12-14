@@ -5,8 +5,28 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:TypeAssist"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
+        Title="TypeAssist" Height="450" Width="800"
+        WindowStyle="None" WindowState="Maximized"
+        AllowsTransparency="True"
+        Topmost="True"
+        KeyDown="Window_KeyDown">
+    <Window.Background>
+        <SolidColorBrush Opacity="1"/>
+    </Window.Background>
     <Grid>
+        <TextBlock x:Name="testblock"
+                   Text="TypeAssist Overlay"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"
+                   FontSize="48"
+                   Foreground="Violet"
+                   />
+        <Button x:Name="testConsole"
+                VerticalAlignment="Bottom"
+                HorizontalAlignment="Center"
+                Height="30"
+                Width="100"
+                Content="Test Console"/>
 
     </Grid>
 </Window>
