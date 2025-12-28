@@ -8,8 +8,7 @@
         Title="TypeAssist" Height="450" Width="800"
         WindowStyle="None" WindowState="Maximized"
         AllowsTransparency="True"
-        Topmost="True"
-        KeyDown="Window_KeyDown">
+        Topmost="True">
     <Window.Background>
         <SolidColorBrush Opacity="1"/>
     </Window.Background>
