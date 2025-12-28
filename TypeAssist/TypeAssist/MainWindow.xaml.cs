@@ -1,28 +1,17 @@
-﻿using DeftSharp.Windows.Input.Keyboard;
-using System.Windows;
-using System.Windows.Controls;
+﻿using System.Windows;
 using System.Windows.Input;
-
 
 namespace TypeAssist
 {
     
     public partial class MainWindow : Window
     {
-
-        private static KeyboardListener _keyboardListener = new KeyboardListener();
-
+        List<char> buffer = new List<char>();
         public MainWindow()
         {
             InitializeComponent();
-            InputListenerService.Subscribe(testblock);
+            InputListenerService.Subscribe(buffer);
 
-        }
-
-        private void Window_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
-        {
-            System.Diagnostics.Debug.WriteLine($"Key pressed: {e.Key}");
-            testblock.Text = $"Key pressed: {e.Key}";
         }
     }
 }
