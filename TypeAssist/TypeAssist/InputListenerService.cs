@@ -1,5 +1,6 @@
 ﻿using DeftSharp.Windows.Input.Keyboard;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Windows.Input;
 
 namespace TypeAssist
@@ -20,12 +21,12 @@ namespace TypeAssist
         private static KeyConverter _keyconverter = new KeyConverter();
 
         public static void Subscribe(List<char> buffer)
-        {
+        { 
             foreach (var keyEnum in _subscribedKeys)
             {
+
                 _keyboardListener.Subscribe(keyEnum, pressedKey => {
                     char? charToAdd = null;
-
                     switch (pressedKey)
                     {
                         case Key.Space:
