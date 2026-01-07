@@ -20,12 +20,11 @@
                    FontSize="48"
                    Foreground="Violet"
                    />
-        <Button x:Name="testConsole"
-                VerticalAlignment="Bottom"
-                HorizontalAlignment="Center"
-                Height="30"
-                Width="100"
-                Content="Test Console"/>
+        <Popup x:Name="testPopup"
+               Placement="Mouse"
+               StaysOpen="False">
+            
+        </Popup>
 
     </Grid>
 </Window>
