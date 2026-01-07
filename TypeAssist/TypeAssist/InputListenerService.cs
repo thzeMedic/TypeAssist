@@ -33,14 +33,29 @@ namespace TypeAssist
             Key.Space, Key.Enter, Key.Back, Key.Tab, Key.OemComma, Key.OemPeriod
         };
         private static KeyConverter _keyconverter = new KeyConverter();
-        
 
-        public static void Subscribe(List<char> buffer, List<string> processes, TextBlock textblock, Popup popup, string[] data, SelectionChangedEventHandler e)
+        private static CancellationTokenSource _cts;
+
+        private static Dictionary<Key, DateTime> _lastKeyPressTimes = new Dictionary<Key, DateTime>();
+
+        public static void Subscribe(List<char> buffer, Action<string> onBufferChanged)
         {
             foreach (var keyEnum in _subscribedKeys)
             {
 
-                _keyboardListener.Subscribe(keyEnum, pressedKey => {
+                _keyboardListener.Subscribe(keyEnum, pressedKey => 
+                {
+
+                    if (_lastKeyPressTimes.ContainsKey(pressedKey))
+                    {
+                        var timeSinceLast = DateTime.Now - _lastKeyPressTimes[pressedKey];
+                        if (timeSinceLast.TotalMilliseconds < 100) // 100ms Debounce
+                        {
+                            return; // Ignorieren!
+                        }
+                    }
+                    _lastKeyPressTimes[pressedKey] = DateTime.Now;
+
                     char? charToAdd = null;
                     switch (pressedKey)
                     {
@@ -84,56 +99,27 @@ namespace TypeAssist
                     if (charToAdd.HasValue)
                     {
 
-                        var process = GetForegroundProcessName();
-
-                        if (process != null)
-                        {
-                            processes.Add(process);
-                        }
-
-                        if (process == "TypeAssist")
-                        {
-                            return; // Ignore key presses from TypeAssist itself
-                        }
+                        if (GetForegroundProcessName() == "TypeAssist") return;
 
                         buffer.Add(charToAdd.Value);
 
-                        //next 4 lines for debugging
-                        Debug.WriteLine($"Key Pressed: {charToAdd.Value}");
-
-                        string currentBuffer = new string(buffer.ToArray());
-                        Debug.WriteLine($"Current Buffer: {currentBuffer}");
-
-                        textblock.Text = process; 
-
-                        if (!popup.IsOpen)
+                        if (_cts != null)
                         {
-                            popup.IsOpen = true;
+                            _cts.Cancel();
+                            _cts.Dispose();
                         }
 
-                        // Generate a non-focusable ListBox to avoid stealing keyboard focus from the foreground app
-                        popup.Child = GenerateListBox(data, e);
+                        _cts = new CancellationTokenSource();
 
-                        // Do not force the TypeAssist window to foreground here; that steals input focus from the app
-                        // ProcessHandle();
+                        string currentText = new string(buffer.ToArray());
+
+                        onBufferChanged?.Invoke(currentText);
                     }
                 });
             }
         }
 
-        private static ListBox GenerateListBox(string[] data, SelectionChangedEventHandler e)
-        {
-            var listbox = new ListBox
-            {
-                ItemsSource = data,
-                Focusable = false,
-                IsTabStop = false
-            };
-
-            listbox.SelectionChanged += e;
-
-            return listbox;
-        }
+        
 
         private static string GetForegroundProcessName()
         {

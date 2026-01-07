@@ -9,6 +9,7 @@ namespace TypeAssist.Models
     public class OllamaRequest
     {
         [JsonPropertyName("model")]
+        // Empfehlung: mindestens 3B für bessere deutsche Grammatik
         public string Model { get; set; } = "qwen2.5:0.5b";
 
         [JsonPropertyName("prompt")]
@@ -22,18 +23,31 @@ namespace TypeAssist.Models
         public int KeepAlive { get; set; } = -1;
 
         [JsonPropertyName("options")]
-        public OllamaOptions Options { get; set; }
+        public OllamaOptions Options { get; set; } = new OllamaOptions();
     }
 
     public class OllamaOptions
     {
+        // 🔥 Der Gamechanger für Autocomplete: nur EIN Token erzeugen
         [JsonPropertyName("num_predict")]
-        public int NumPredict { get; set; } = 5;
+        public int NumPredict { get; set; } = 1;
 
+        // Wenig Kreativität → stabilere Vorhersagen
         [JsonPropertyName("temperature")]
-        public double Temperature { get; set; } = 0.0;
+        public double Temperature { get; set; } = 0.1;
 
+        // Optional, aber hilfreich gegen „Halluzinationen“
+        [JsonPropertyName("top_p")]
+        public double TopP { get; set; } = 0.9;
+
+        [JsonPropertyName("top_k")]
+        public int TopK { get; set; } = 40;
+
+        [JsonPropertyName("repeat_penalty")]
+        public double RepeatPenalty { get; set; } = 1.1;
+
+        // Stoppt die Ausgabe nach dem ersten Wort
         [JsonPropertyName("stop")]
-        public string[] Stop { get; set; } = new[] { "\n", ".", "!", "Text:" };
+        public string[] Stop { get; set; } = new[] { " ", "\n", ".", ",", "!", "?" };
     }
 }

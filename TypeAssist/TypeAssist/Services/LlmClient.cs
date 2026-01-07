@@ -25,32 +25,56 @@ namespace TypeAssist.Services
             var sw = Stopwatch.StartNew();
 
             // Leerer Request zum Laden
-            await GetNextWordAsync("Warmup");
+            await GetNextWordAsync("Warmup", new CancellationToken());
 
             sw.Stop();
             Debug.WriteLine($"--- Warmup finished in {sw.ElapsedMilliseconds} ms ---");
         }
 
-        public async Task<string> GetNextWordAsync(string context)
+        public async Task<string> GetNextWordAsync(string context, CancellationToken cancellationToken)
         {
             try
             {
-                // Hier nutzen wir jetzt unsere saubere Klasse statt "new { ... }"
+                var strictPrompt = $@"<|im_start|>system
+                    Du bist ein Code-Editor und Autocomplete-Tool. 
+                    Deine Aufgabe ist es, den Text des Users zu vervollständigen.
+                    Antworte NUR mit dem nächsten Wort. 
+                    Keine Sätze. Keine Erklärungen. Keine Anführungszeichen.
+                    <|im_end|>
+                    <|im_start|>user
+                    {context}<|im_end|>
+                    <|im_start|>assistant
+                    ";
+
                 var payload = new OllamaRequest
                 {
-                    Prompt = $"Text: {context}\nFortsetzung:",
-                    Options = new OllamaOptions() // Nutzt die Defaults aus der Klasse
+                    // Wir senden den ganzen Prompt als "prompt" Feld, nicht "system" extra
+                    Prompt = strictPrompt,
+
+                    // Wichtig: Verhindert, dass er "Hier ist das Wort:" schreibt
+                    Options = new OllamaOptions
+                    {
+                        NumPredict = 10, // Nur max 5 Token generieren
+                        Stop = new[] { "\n", ".", "<|im_end|>", "!", "?" }, // Bei Leerzeichen sofort stoppen!
+                        Temperature = 0.1 // Weniger Kreativität, mehr Präzision
+                    },
+                    // ... keep_alive ...
                 };
 
                 // Der C# Weg: PostAsJsonAsync serialisiert automatisch
-                var response = await _httpClient.PostAsJsonAsync(ApiUrl, payload);
+                var response = await _httpClient.PostAsJsonAsync(ApiUrl, payload, cancellationToken);
 
                 if (!response.IsSuccessStatusCode) return null;
 
                 // Antwort lesen und in unser Model wandeln
-                var result = await response.Content.ReadFromJsonAsync<OllamaResponse>();
+                var result = await response.Content.ReadFromJsonAsync<OllamaResponse>(cancellationToken: cancellationToken);
 
                 return result?.Response?.Trim();
+            }
+            catch (OperationCanceledException)
+            {
+                Debug.WriteLine("Request cancelled because user kept typing.");
+                return null;
             }
             catch (Exception ex)
             {
