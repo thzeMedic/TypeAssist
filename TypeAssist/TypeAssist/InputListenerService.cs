@@ -111,9 +111,11 @@ namespace TypeAssist
                             popup.IsOpen = true;
                         }
 
+                        // Generate a non-focusable ListBox to avoid stealing keyboard focus from the foreground app
                         popup.Child = GenerateListBox(data, e);
 
-                        ProcessHandle();
+                        // Do not force the TypeAssist window to foreground here; that steals input focus from the app
+                        // ProcessHandle();
                     }
                 });
             }
@@ -123,20 +125,14 @@ namespace TypeAssist
         {
             var listbox = new ListBox
             {
-                ItemsSource = data
+                ItemsSource = data,
+                Focusable = false,
+                IsTabStop = false
             };
 
             listbox.SelectionChanged += e;
 
             return listbox;
-        }
-
-        private static void ProcessHandle() 
-        {
-            Process[] typeAssistProcess = Process.GetProcessesByName("TypeAssist");
-            IntPtr typeAssistHandle = typeAssistProcess[0].MainWindowHandle;
-
-            SetForegroundWindow(typeAssistHandle);
         }
 
         private static string GetForegroundProcessName()

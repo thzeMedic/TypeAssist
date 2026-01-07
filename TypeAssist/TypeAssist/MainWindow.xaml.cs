@@ -19,7 +19,7 @@ namespace TypeAssist
         public MainWindow()
         {
             InitializeComponent();
-            InputListenerService.Subscribe(buffer, processes, testblock, testPopup,testOption, RecommendationList_SelectionChanged);
+            InputListenerService.Subscribe(buffer, processes, testblock, testPopup, testOption, RecommendationList_SelectionChanged);
         }
 
         private void RecommendationList_SelectionChanged(object sender, SelectionChangedEventArgs e)
