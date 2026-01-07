@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <PackageReference Include="DeftSharp.Windows.Input" Version="0.10.0" />
+    <PackageReference Include="InputSimulatorPlus" Version="1.0.7" />
   </ItemGroup>
 
 </Project>
