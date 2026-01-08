@@ -10,7 +10,7 @@ namespace TypeAssist.Models
     {
         [JsonPropertyName("model")]
         // Empfehlung: mindestens 3B für bessere deutsche Grammatik
-        public string Model { get; set; } = "qwen2.5:0.5b";
+        public string Model { get; set; } = "phi3:3.8b";
 
         [JsonPropertyName("prompt")]
         public string Prompt { get; set; } = "";
@@ -28,15 +28,12 @@ namespace TypeAssist.Models
 
     public class OllamaOptions
     {
-        // 🔥 Der Gamechanger für Autocomplete: nur EIN Token erzeugen
         [JsonPropertyName("num_predict")]
         public int NumPredict { get; set; } = 1;
 
-        // Wenig Kreativität → stabilere Vorhersagen
         [JsonPropertyName("temperature")]
         public double Temperature { get; set; } = 0.1;
 
-        // Optional, aber hilfreich gegen „Halluzinationen“
         [JsonPropertyName("top_p")]
         public double TopP { get; set; } = 0.9;
 

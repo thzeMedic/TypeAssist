@@ -2,6 +2,7 @@
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace TypeAssist
 {
@@ -43,16 +44,22 @@ namespace TypeAssist
                 var sw = Stopwatch.StartNew();
                 Debug.WriteLine("HandleNewInputAsync: Requesting suggestion from LlmService...");
 
-                var suggestion = await App.LlmService.GetNextWordAsync(currentText, token);
+
+
+                var rawSuggestion = await App.LlmService.GetNextWordAsync(currentText, token);
 
                 sw.Stop();
-                Debug.WriteLine($"HandleNewInputAsync: LLM request finished in {sw.ElapsedMilliseconds} ms. Suggestion='{suggestion}'");
+                Debug.WriteLine($"HandleNewInputAsync: LLM request finished in {sw.ElapsedMilliseconds} ms. Suggestion='{rawSuggestion}'");
 
-                if (!token.IsCancellationRequested && !string.IsNullOrEmpty(suggestion))
+
+                if (!token.IsCancellationRequested && !string.IsNullOrEmpty(rawSuggestion))
                 {
+                    var suggestions = rawSuggestion.Split('|', StringSplitOptions.RemoveEmptyEntries)
+                                           .Select(s => s.Trim())
+                                           .ToArray();
+
                     Dispatcher.Invoke(() =>
                     {
-                        var suggestions = new string[] { suggestion };
                         testPopup.Child = GenerateListBox(suggestions);
                         testPopup.IsOpen = true;
                         Debug.WriteLine("HandleNewInputAsync: Popup opened with suggestion");

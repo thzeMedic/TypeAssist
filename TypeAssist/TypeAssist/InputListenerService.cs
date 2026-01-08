@@ -23,6 +23,7 @@ namespace TypeAssist
 
         private static KeyboardListener _keyboardListener = new KeyboardListener();
         private static readonly HashSet<Key> _subscribedKeys = new HashSet<Key>()
+        
         {
             Key.A, Key.B, Key.C, Key.D, Key.E, Key.F, Key.G,
             Key.H, Key.I, Key.J, Key.K, Key.L, Key.M, Key.N,
@@ -32,6 +33,7 @@ namespace TypeAssist
             Key.D5, Key.D6, Key.D7, Key.D8, Key.D9, 
             Key.Space, Key.Enter, Key.Back, Key.Tab, Key.OemComma, Key.OemPeriod
         };
+
         private static KeyConverter _keyconverter = new KeyConverter();
 
         private static CancellationTokenSource _cts;
@@ -51,7 +53,7 @@ namespace TypeAssist
                         var timeSinceLast = DateTime.Now - _lastKeyPressTimes[pressedKey];
                         if (timeSinceLast.TotalMilliseconds < 100) // 100ms Debounce
                         {
-                            return; // Ignorieren!
+                            return; 
                         }
                     }
                     _lastKeyPressTimes[pressedKey] = DateTime.Now;
@@ -72,13 +74,12 @@ namespace TypeAssist
                             if (buffer.Count > 0)
                             {
                                 buffer.RemoveAt(buffer.Count - 1);
-                                // next 3 lines for debugging
                                 Debug.WriteLine("Backspace Pressed. Removed last character.");
 
                                 string currentBuffer = new string(buffer.ToArray());
                                 Debug.WriteLine($"Current Buffer: {currentBuffer}");
                             }
-                            return; // Exit early to avoid adding a character
+                            return; 
                         case Key.OemComma:
                             charToAdd = ',';
                             break;
@@ -118,8 +119,6 @@ namespace TypeAssist
                 });
             }
         }
-
-        
 
         private static string GetForegroundProcessName()
         {

@@ -15,10 +15,9 @@ namespace TypeAssist.Services
         public LlmClient()
         {
             _httpClient = new HttpClient();
-            _httpClient.Timeout = TimeSpan.FromSeconds(5); // Nicht ewig warten
+            _httpClient.Timeout = TimeSpan.FromSeconds(5); 
         }
 
-        // Diese Methode rufen wir beim Start auf (dein Warmup)
         public async Task WarmupAsync()
         {
             Debug.WriteLine("--- Starting Ollama Warmup ---");
@@ -35,38 +34,40 @@ namespace TypeAssist.Services
         {
             try
             {
-                var strictPrompt = $@"<|im_start|>system
-                    Du bist ein Code-Editor und Autocomplete-Tool. 
-                    Deine Aufgabe ist es, den Text des Users zu vervollständigen.
-                    Antworte NUR mit dem nächsten Wort. 
-                    Keine Sätze. Keine Erklärungen. Keine Anführungszeichen.
-                    <|im_end|>
-                    <|im_start|>user
-                    {context}<|im_end|>
-                    <|im_start|>assistant
-                    ";
+                var prompt = $@"
+                    You are a very smart autocomplete program. 
+                    Rules:
+                    - Provide 3 suggestions that complete the last word.
+                    - Each suggestion must be ONE WORD only.
+                    - Format: word1|word2|word3
+                    - No explanations, no punctuation, no extra text.
+
+                    Examples:
+                    - Input: 'I like appl' -> Output: 'apple|apples|applied'
+                    - Input: 'The weather is be' -> Output: 'beautiful|better|best'
+                    - Input: 'Wait for the applic' -> Output: 'application|applicant|applicable'
+                    
+                    Task: Complete the last unfinished word of the UserInput.
+                    UserInput: '{context}' -> Output:";
 
                 var payload = new OllamaRequest
                 {
-                    // Wir senden den ganzen Prompt als "prompt" Feld, nicht "system" extra
-                    Prompt = strictPrompt,
-
-                    // Wichtig: Verhindert, dass er "Hier ist das Wort:" schreibt
+                    Model = "qwen2.5:0.5b",
+                    Prompt = prompt,
                     Options = new OllamaOptions
                     {
-                        NumPredict = 10, // Nur max 5 Token generieren
-                        Stop = new[] { "\n", ".", "<|im_end|>", "!", "?" }, // Bei Leerzeichen sofort stoppen!
-                        Temperature = 0.1 // Weniger Kreativität, mehr Präzision
-                    },
-                    // ... keep_alive ...
+                        NumPredict = 10,      
+                        Temperature = 0.2,   
+                        TopK = 40,
+                        RepeatPenalty=1.1,
+                        Stop = new[] { " ", "\n", ".", ",", "!", "?" }
+                    }
                 };
 
-                // Der C# Weg: PostAsJsonAsync serialisiert automatisch
                 var response = await _httpClient.PostAsJsonAsync(ApiUrl, payload, cancellationToken);
 
                 if (!response.IsSuccessStatusCode) return null;
 
-                // Antwort lesen und in unser Model wandeln
                 var result = await response.Content.ReadFromJsonAsync<OllamaResponse>(cancellationToken: cancellationToken);
 
                 return result?.Response?.Trim();
