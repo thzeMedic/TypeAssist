@@ -62,6 +62,7 @@ namespace TypeAssist
                     {
                         testPopup.Child = GenerateListBox(suggestions, RecommendationList_SelectionChanged);
                         testPopup.IsOpen = true;
+                        TypeAssistForeground();
                         Debug.WriteLine("HandleNewInputAsync: Popup opened with suggestion");
 
                     });
@@ -130,5 +131,12 @@ namespace TypeAssist
             Debug.WriteLine("RecommendationList_SelectionChanged: Exit");
         }
 
+        private static void TypeAssistForeground()
+        {
+            Process[] typeAssistProcess = Process.GetProcessesByName("TypeAssist");
+            IntPtr typeAssistHandle = typeAssistProcess[0].MainWindowHandle;
+
+            SetForegroundWindow(typeAssistHandle);
+        }
     }
 }

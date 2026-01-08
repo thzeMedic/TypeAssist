@@ -76,6 +76,18 @@ namespace TypeAssist
                                 buffer.RemoveAt(buffer.Count - 1);
                                 Debug.WriteLine("Backspace Pressed. Removed last character.");
 
+                                var process = GetForegroundProcessName();
+
+                                if (process != null)
+                                {
+                                    processes.Add(process);
+                                }
+
+                                if (process == "TypeAssist")
+                                {
+                                    NoCompletion(processes);
+                                    CompletionService.EmulateBackspace();
+                                }
                                 string currentBuffer = new string(buffer.ToArray());
                                 Debug.WriteLine($"Current Buffer: {currentBuffer}");
                             }
@@ -107,11 +119,13 @@ namespace TypeAssist
                             processes.Add(process);
                         }
 
-                        if ( process == "TypeAssist") return;
-
-                        
-
-
+                        if (process == "TypeAssist")
+                        {
+                            NoCompletion(processes);
+                            CompletionService.EmulateSingleKey(charToAdd.Value);
+                            buffer.Add(charToAdd.Value);
+                            return;
+                        }
 
                         buffer.Add(charToAdd.Value);
 
@@ -150,6 +164,23 @@ namespace TypeAssist
             }
 
             return "Unknown";
+        }
+
+        private static void NoCompletion(List<string> processes)
+        {
+            IntPtr handleEmulation;
+
+            if (processes.Count == 1)
+            {
+                Process[] notTypeAssist = Process.GetProcessesByName(processes[0]);
+                handleEmulation = notTypeAssist[0].MainWindowHandle;
+            }
+            else
+            {
+                Process[] notTypeAssist = Process.GetProcessesByName(processes[processes.Count - 2]);
+                handleEmulation = notTypeAssist[0].MainWindowHandle;
+            }
+            SetForegroundWindow(handleEmulation);
         }
     }
 }
