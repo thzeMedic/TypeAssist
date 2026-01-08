@@ -60,7 +60,7 @@ namespace TypeAssist
 
                     Dispatcher.Invoke(() =>
                     {
-                        testPopup.Child = GenerateListBox(suggestions);
+                        testPopup.Child = GenerateListBox(suggestions, RecommendationList_SelectionChanged);
                         testPopup.IsOpen = true;
                         Debug.WriteLine("HandleNewInputAsync: Popup opened with suggestion");
 
