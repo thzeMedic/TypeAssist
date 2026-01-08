@@ -20,7 +20,7 @@ namespace TypeAssist
         {
             InitializeComponent();
             Debug.WriteLine("MainWindow: Initialized component");
-            InputListenerService.Subscribe(buffer, async (currentText) => 
+            InputListenerService.Subscribe(buffer, processes, async (currentText) => 
                 {
                     Debug.WriteLine($"MainWindow: Received input callback. CurrentText='{currentText}'");
                     await HandleNewInputAsync(currentText);
@@ -81,7 +81,7 @@ namespace TypeAssist
             }
         }
 
-        private static ListBox GenerateListBox(string[] data)
+        private static ListBox GenerateListBox(string[] data, SelectionChangedEventHandler e)
         {
             Debug.WriteLine($"GenerateListBox: Creating ListBox with {data?.Length ?? 0} items");
             var listbox = new ListBox
@@ -90,6 +90,8 @@ namespace TypeAssist
                 Focusable = false,
                 IsTabStop = false
             };
+
+            listbox.SelectionChanged += e;
 
             return listbox;
         }

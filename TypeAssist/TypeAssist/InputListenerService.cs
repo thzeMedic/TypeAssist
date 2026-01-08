@@ -40,7 +40,7 @@ namespace TypeAssist
 
         private static Dictionary<Key, DateTime> _lastKeyPressTimes = new Dictionary<Key, DateTime>();
 
-        public static void Subscribe(List<char> buffer, Action<string> onBufferChanged)
+        public static void Subscribe(List<char> buffer, List<string> processes, Action<string> onBufferChanged)
         {
             foreach (var keyEnum in _subscribedKeys)
             {
@@ -100,7 +100,18 @@ namespace TypeAssist
                     if (charToAdd.HasValue)
                     {
 
-                        if (GetForegroundProcessName() == "TypeAssist") return;
+                        var process = GetForegroundProcessName();
+
+                        if (process != null)
+                        {
+                            processes.Add(process);
+                        }
+
+                        if ( process == "TypeAssist") return;
+
+                        
+
+
 
                         buffer.Add(charToAdd.Value);
 
