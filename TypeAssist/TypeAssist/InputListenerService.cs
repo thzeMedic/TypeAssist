@@ -1,8 +1,6 @@
 ﻿using DeftSharp.Windows.Input.Keyboard;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-using System.Windows.Controls;
-using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 
 namespace TypeAssist
@@ -47,6 +45,7 @@ namespace TypeAssist
 
                 _keyboardListener.Subscribe(keyEnum, pressedKey => 
                 {
+                    var process = GetForegroundProcessName();
 
                     if (_lastKeyPressTimes.ContainsKey(pressedKey))
                     {
@@ -68,6 +67,10 @@ namespace TypeAssist
                             charToAdd = '\n';
                             break;
                         case Key.Tab:
+                            if (process == "TypeAssist")
+                            {
+                                return;
+                            }
                             charToAdd = '\t';
                             break;
                         case Key.Back:
@@ -75,8 +78,6 @@ namespace TypeAssist
                             {
                                 buffer.RemoveAt(buffer.Count - 1);
                                 Debug.WriteLine("Backspace Pressed. Removed last character.");
-
-                                var process = GetForegroundProcessName();
 
                                 if (process != null)
                                 {
@@ -111,9 +112,6 @@ namespace TypeAssist
  
                     if (charToAdd.HasValue)
                     {
-
-                        var process = GetForegroundProcessName();
-
                         if (process != null)
                         {
                             processes.Add(process);

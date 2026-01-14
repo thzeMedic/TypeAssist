@@ -2,7 +2,8 @@
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
-using static System.Net.Mime.MediaTypeNames;
+using System.Windows.Input;
+using System.Windows.Threading;
 
 namespace TypeAssist
 {
@@ -60,9 +61,27 @@ namespace TypeAssist
 
                     Dispatcher.Invoke(() =>
                     {
-                        testPopup.Child = GenerateListBox(suggestions, RecommendationList_SelectionChanged);
+                        ListBox listBox = GenerateListBox(suggestions);
+                        testPopup.Child = listBox;
                         testPopup.IsOpen = true;
+
                         TypeAssistForeground();
+
+                        listBox.Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() =>
+                        {
+                            if (listBox.Items.Count > 0)
+                            {
+                                listBox.SelectedIndex = 0;
+
+                                //var item = (ListBoxItem)listBox.ItemContainerGenerator.ContainerFromIndex(0);
+                                //item?.Focus();
+                                listBox.Focus();
+                            }
+                            else
+                            {
+                                listBox.Focus();
+                            }
+                        }));
                         Debug.WriteLine("HandleNewInputAsync: Popup opened with suggestion");
 
                     });
@@ -82,26 +101,41 @@ namespace TypeAssist
             }
         }
 
-        private static ListBox GenerateListBox(string[] data, SelectionChangedEventHandler e)
+        private ListBox GenerateListBox(string[] data)
         {
             Debug.WriteLine($"GenerateListBox: Creating ListBox with {data?.Length ?? 0} items");
             var listbox = new ListBox
             {
-                ItemsSource = data,
-                Focusable = false,
-                IsTabStop = false
+                ItemsSource = data
             };
 
-            listbox.SelectionChanged += e;
+            listbox.PreviewKeyDown += (sender, e) =>
+            {
+                var lb = sender as ListBox;
+
+                if (e.Key == Key.Tab)
+                {
+                    if (lb.SelectedItem != null)
+                    {
+                        ConfirmSelection(lb.SelectedItem.ToString());
+                        e.Handled = true;
+                    }
+                }
+            };
+
+            listbox.PreviewMouseLeftButtonUp += (sender, e) =>
+            {
+                var lb = sender as ListBox;
+                if (lb.SelectedItem != null)
+                {
+                    ConfirmSelection(lb.SelectedItem.ToString());
+                }
+            };
 
             return listbox;
         }
 
-        private void RecommendationList_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            Debug.WriteLine("RecommendationList_SelectionChanged: Enter");
-            var listBox = sender as ListBox;
-            
+        private void ConfirmSelection(string selectedOption) {
             IntPtr handleEmulation;
 
             if (processes.Count == 1)
@@ -115,20 +149,15 @@ namespace TypeAssist
                 handleEmulation = process[0].MainWindowHandle;
             }
 
-            if (listBox != null && listBox.SelectedItem != null)
-            {
-                string selectedOption = listBox.SelectedItem.ToString();
-                Debug.WriteLine($"Recommendation selected: {selectedOption}");
-                testblock.Text = selectedOption;
-                Debug.WriteLine($"RecommendationList_SelectionChanged: Setting foreground to process handle {handleEmulation}");
-                SetForegroundWindow(handleEmulation);
-                Debug.WriteLine("RecommendationList_SelectionChanged: Calling CompletionService.EmulateKeys");
-                CompletionService.EmulateKeys(selectedOption, buffer);
-                buffer.Add(' ');
-                testPopup.IsOpen = false;
-                Debug.WriteLine("RecommendationList_SelectionChanged: Emulation complete and popup closed");
-            }
-            Debug.WriteLine("RecommendationList_SelectionChanged: Exit");
+            Debug.WriteLine($"Recommendation selected: {selectedOption}");
+            testblock.Text = selectedOption;
+            Debug.WriteLine($"RecommendationList_SelectionChanged: Setting foreground to process handle {handleEmulation}");
+            SetForegroundWindow(handleEmulation);
+            Debug.WriteLine("RecommendationList_SelectionChanged: Calling CompletionService.EmulateKeys");
+            CompletionService.EmulateKeys(selectedOption, buffer);
+            buffer.Add(' ');
+            testPopup.IsOpen = false;
+            Debug.WriteLine("RecommendationList_SelectionChanged: Emulation complete and popup closed");
         }
 
         private static void TypeAssistForeground()

@@ -22,7 +22,9 @@
                    />
         <Popup x:Name="testPopup"
                Placement="Mouse"
-               StaysOpen="False">
+               StaysOpen="False"
+               Width="50"
+               Height="100">
             
         </Popup>
 
