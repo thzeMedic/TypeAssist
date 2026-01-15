@@ -23,10 +23,9 @@
         <Popup x:Name="testPopup"
                Placement="Mouse"
                StaysOpen="False"
-               Width="50"
-               Height="100">
-            
-        </Popup>
+               MinHeight="50"
+               MinWidth="100">
 
+        </Popup>
     </Grid>
 </Window>

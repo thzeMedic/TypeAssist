@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Threading;
+using System.Configuration;
 
 namespace TypeAssist
 {
@@ -17,10 +18,15 @@ namespace TypeAssist
         
         private static List<string> processes = new List<string>();
 
+        Configuration config = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
+
         public MainWindow()
         {
             InitializeComponent();
             Debug.WriteLine("MainWindow: Initialized component");
+
+            
+
             InputListenerService.Subscribe(buffer, processes, async (currentText) => 
                 {
                     Debug.WriteLine($"MainWindow: Received input callback. CurrentText='{currentText}'");
@@ -28,6 +34,10 @@ namespace TypeAssist
                 }
             );
             Debug.WriteLine("MainWindow: Subscribed to InputListenerService");
+
+            SettingsWindow settings = new SettingsWindow();
+
+            settings.Show();
         }
 
         private async Task HandleNewInputAsync(string currentText)
@@ -73,9 +83,8 @@ namespace TypeAssist
                             {
                                 listBox.SelectedIndex = 0;
 
-                                //var item = (ListBoxItem)listBox.ItemContainerGenerator.ContainerFromIndex(0);
-                                //item?.Focus();
-                                listBox.Focus();
+                                var item = (ListBoxItem)listBox.ItemContainerGenerator.ContainerFromIndex(0);
+                                item?.Focus();
                             }
                             else
                             {
