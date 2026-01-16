@@ -21,7 +21,6 @@ namespace TypeAssist
 
         private static KeyboardListener _keyboardListener = new KeyboardListener();
         private static readonly HashSet<Key> _subscribedKeys = new HashSet<Key>()
-        
         {
             Key.A, Key.B, Key.C, Key.D, Key.E, Key.F, Key.G,
             Key.H, Key.I, Key.J, Key.K, Key.L, Key.M, Key.N,
@@ -37,6 +36,15 @@ namespace TypeAssist
         private static CancellationTokenSource _cts;
 
         private static Dictionary<Key, DateTime> _lastKeyPressTimes = new Dictionary<Key, DateTime>();
+
+        public static void SubscribeSetting()
+        {
+            _keyboardListener.SubscribeCombination([Key.LeftCtrl, Key.F1], () =>
+            {
+                SettingsWindow settingsWindow = new SettingsWindow();
+                settingsWindow.Show();
+            });
+        }
 
         public static void Subscribe(List<char> buffer, List<string> processes, Action<string> onBufferChanged)
         {

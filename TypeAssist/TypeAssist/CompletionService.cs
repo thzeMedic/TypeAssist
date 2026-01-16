@@ -1,4 +1,5 @@
 ﻿using WindowsInput;
+using WindowsInput.Native;
 
 namespace TypeAssist
 {
@@ -9,16 +10,16 @@ namespace TypeAssist
             InputSimulator isim = new InputSimulator();
             if (buffer.Count == 0 || recommendation == null) return; // Nothing to complete
 
-            char[] recommendationArray = recommendation.ToCharArray();
+            char[] recommendationArray = recommendation.ToLower().ToCharArray();
 
-            if(buffer.Last() != ' ')
-            {
-                // If the last character in the buffer is not a space, we add a space to separate with the recommendation
-                buffer.Add(' ');
-                isim.Keyboard.KeyPress(WindowsInput.Native.VirtualKeyCode.SPACE);
-            }
+            //if(buffer.Last() != ' ')
+            //{
+            //    // If the last character in the buffer is not a space, we add a space to separate with the recommendation
+            //    buffer.Add(' ');
+            //    isim.Keyboard.KeyPress(VirtualKeyCode.SPACE);
+            //}
             string currentBuffer = new string(buffer.ToArray());
-            char[] lastWord = currentBuffer.Split(' ').Last().ToCharArray();
+            char[] lastWord = currentBuffer.Split(' ').Last().ToLower().ToCharArray();
 
             
 
@@ -33,10 +34,10 @@ namespace TypeAssist
                 }
                 else
                 {
-                    isim.Keyboard.KeyPress(WindowsInput.Native.VirtualKeyCode.VK_A + (char.ToUpper(recommendationArray[i]) - 'A'));
+                   isim.Keyboard.KeyPress(VirtualKeyCode.VK_A + (char.ToUpper(recommendationArray[i]) - 'A'));
                 }
             }
-            isim.Keyboard.KeyPress(WindowsInput.Native.VirtualKeyCode.SPACE);
+             isim.Keyboard.KeyPress(VirtualKeyCode.SPACE);
         }
 
         public static void EmulateSingleKey (char key)
@@ -44,24 +45,24 @@ namespace TypeAssist
             InputSimulator isim = new InputSimulator();
             if (char.IsLetter(key))
             {
-                isim.Keyboard.KeyPress(WindowsInput.Native.VirtualKeyCode.VK_A + (char.ToUpper(key) - 'A'));
+                isim.Keyboard.KeyPress(VirtualKeyCode.VK_A + (char.ToUpper(key) - 'A'));
             }
             else if (char.IsDigit(key))
             {
-                isim.Keyboard.KeyPress(WindowsInput.Native.VirtualKeyCode.VK_0 + (key - '0'));
+                isim.Keyboard.KeyPress(VirtualKeyCode.VK_0 + (key - '0'));
             }
             else
             {
                 switch (key)
                 {
                     case ' ':
-                        isim.Keyboard.KeyPress(WindowsInput.Native.VirtualKeyCode.SPACE);
+                        isim.Keyboard.KeyPress(VirtualKeyCode.SPACE);
                         break;
                     case '\n':
-                        isim.Keyboard.KeyPress(WindowsInput.Native.VirtualKeyCode.RETURN);
+                        isim.Keyboard.KeyPress(VirtualKeyCode.RETURN);
                         break;
                     case '\t':
-                        isim.Keyboard.KeyPress(WindowsInput.Native.VirtualKeyCode.TAB);
+                        isim.Keyboard.KeyPress(VirtualKeyCode.TAB);
                         break;
                     // Add more special characters as needed
                 }
@@ -71,7 +72,7 @@ namespace TypeAssist
         public static void EmulateBackspace()
         {
             InputSimulator isim = new InputSimulator();
-            isim.Keyboard.KeyPress(WindowsInput.Native.VirtualKeyCode.BACK);
+            isim.Keyboard.KeyPress(VirtualKeyCode.BACK);
         }
     }
 }

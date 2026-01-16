@@ -1,10 +1,11 @@
-﻿using System.Diagnostics;
+﻿using System.Configuration;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Threading;
-using System.Configuration;
+
 
 namespace TypeAssist
 {
@@ -25,19 +26,22 @@ namespace TypeAssist
             InitializeComponent();
             Debug.WriteLine("MainWindow: Initialized component");
 
-            
+            if (config.Sections["ModeSettings"] is null)
+            {
+                config.Sections.Add("ModeSettings", new ModeSettings());
+                config.Save();
+            }
 
-            InputListenerService.Subscribe(buffer, processes, async (currentText) => 
-                {
-                    Debug.WriteLine($"MainWindow: Received input callback. CurrentText='{currentText}'");
-                    await HandleNewInputAsync(currentText);
-                }
-            );
+            KeyboardSubscribe();
             Debug.WriteLine("MainWindow: Subscribed to InputListenerService");
 
-            SettingsWindow settings = new SettingsWindow();
+            SettingService.ApplySuggestionPosition(testPopup);
 
-            settings.Show();
+            SettingService.SettingsUpdated += () =>
+            {
+                SettingService.ApplySuggestionPosition(testPopup);
+                Debug.WriteLine("MainWindow: Applied new suggestion position from settings");
+            };
         }
 
         private async Task HandleNewInputAsync(string currentText)
@@ -108,6 +112,16 @@ namespace TypeAssist
             {
                 Debug.WriteLine("HandleNewInputAsync: Exit");
             }
+        }
+
+        private void KeyboardSubscribe()
+        {
+            InputListenerService.Subscribe(buffer, processes, async (currentText) =>
+            {
+                Debug.WriteLine($"MainWindow: Received input callback. CurrentText='{currentText}'");
+                await HandleNewInputAsync(currentText);
+            });
+            InputListenerService.SubscribeSetting();
         }
 
         private ListBox GenerateListBox(string[] data)

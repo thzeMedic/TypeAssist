@@ -14,5 +14,12 @@ namespace TypeAssist
             get { return (string)this["Mode"]; }
             set { this["Mode"] = value; }
         }
+
+        [ConfigurationProperty("SuggestionPosition", DefaultValue = "Maus")]
+        public string SuggestionPosition
+        {
+            get { return (string)this["SuggestionPosition"]; }
+            set { this["SuggestionPosition"] = value; }
+        }
     }
 }
