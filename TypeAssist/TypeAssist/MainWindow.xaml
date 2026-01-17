@@ -13,20 +13,27 @@
         <SolidColorBrush Opacity="1"/>
     </Window.Background>
     <Grid>
-        <TextBlock x:Name="testblock"
-                   Text="TypeAssist Overlay"
-                   HorizontalAlignment="Center"
-                   VerticalAlignment="Center"
-                   FontSize="48"
-                   Foreground="Violet"
-                   />
-        <Popup x:Name="testPopup"
-               Placement="Mouse"
-               StaysOpen="False"
-               Width="50"
-               Height="100">
-            
-        </Popup>
+        <Rectangle x:Name="AnchorRight"
+                   HorizontalAlignment="Right" VerticalAlignment="Center"
+                   Width="1" Height="1" Visibility="Hidden"/>
 
+        <Rectangle x:Name="AnchorLeft"
+                   HorizontalAlignment="Left" VerticalAlignment="Center"
+                   Width="1" Height="1" Visibility="Hidden"/>
+
+        <Rectangle x:Name="AnchorTop"
+                   HorizontalAlignment="Center" VerticalAlignment="Top"
+                   Width="1" Height="1" Visibility="Hidden"/>
+
+        <Rectangle x:Name="AnchorBottom"
+                   HorizontalAlignment="Center" VerticalAlignment="Bottom"
+                   Width="1" Height="1" Visibility="Hidden"/>
+        
+        <Popup x:Name="recommendations"
+               StaysOpen="False"
+               MinHeight="50"
+               MinWidth="100">
+
+        </Popup>
     </Grid>
 </Window>
