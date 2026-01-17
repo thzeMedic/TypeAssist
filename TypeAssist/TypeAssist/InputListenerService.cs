@@ -1,4 +1,5 @@
 ﻿using DeftSharp.Windows.Input.Keyboard;
+using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows.Input;
@@ -27,7 +28,7 @@ namespace TypeAssist
             Key.O, Key.P, Key.Q, Key.R, Key.S, Key.T, Key.U,
             Key.V, Key.W, Key.X, Key.Y, Key.Z,
             Key.D0, Key.D1, Key.D2, Key.D3, Key.D4,
-            Key.D5, Key.D6, Key.D7, Key.D8, Key.D9, 
+            Key.D5, Key.D6, Key.D7, Key.D8, Key.D9,
             Key.Space, Key.Enter, Key.Back, Key.Tab, Key.OemComma, Key.OemPeriod
         };
 
@@ -37,7 +38,7 @@ namespace TypeAssist
 
         private static Dictionary<Key, DateTime> _lastKeyPressTimes = new Dictionary<Key, DateTime>();
 
-        public static void SubscribeSetting()
+        public static void SubscribeSettingsHotkey()
         {
             _keyboardListener.SubscribeCombination([Key.LeftCtrl, Key.F1], () =>
             {
@@ -46,106 +47,39 @@ namespace TypeAssist
             });
         }
 
+        /// <summary>
+        /// Subscribes to keyboard events and updates the provided character buffer and process list in response to key
+        /// presses. Invokes a callback when the buffer changes.
+        /// </summary>
+        /// <param name="buffer">The list of characters representing the current input buffer. This list is modified in place as keys are
+        /// pressed.</param>
+        /// <param name="processes">The list to which the names of foreground processes are added when relevant key events occur. This list is
+        /// updated in place.</param>
+        /// <param name="onBufferChanged">A callback that is invoked with the current buffer contents as a string whenever the buffer is modified. Can
+        /// be null if no notification is needed.</param>
         public static void Subscribe(List<char> buffer, List<string> processes, Action<string> onBufferChanged)
         {
             foreach (var keyEnum in _subscribedKeys)
             {
 
-                _keyboardListener.Subscribe(keyEnum, pressedKey => 
+                _keyboardListener.Subscribe(keyEnum, pressedKey =>
                 {
+                    if (IsDebounced(pressedKey)) return;
+
                     var process = GetForegroundProcessName();
 
-                    if (_lastKeyPressTimes.ContainsKey(pressedKey))
+                    if (pressedKey == Key.Back)
                     {
-                        var timeSinceLast = DateTime.Now - _lastKeyPressTimes[pressedKey];
-                        if (timeSinceLast.TotalMilliseconds < 100) // 100ms Debounce
-                        {
-                            return; 
-                        }
+                        HandleBackspace(buffer, processes, process);
                     }
-                    _lastKeyPressTimes[pressedKey] = DateTime.Now;
 
-                    char? charToAdd = null;
-                    switch (pressedKey)
-                    {
-                        case Key.Space:
-                            charToAdd = ' ';
-                            break;
-                        case Key.Enter:
-                            charToAdd = '\n';
-                            break;
-                        case Key.Tab:
-                            if (process == "TypeAssist")
-                            {
-                                return;
-                            }
-                            charToAdd = '\t';
-                            break;
-                        case Key.Back:
-                            if (buffer.Count > 0)
-                            {
-                                buffer.RemoveAt(buffer.Count - 1);
-                                Debug.WriteLine("Backspace Pressed. Removed last character.");
+                    if (pressedKey == Key.Tab && process == "TypeAssist") return; 
 
-                                if (process != null)
-                                {
-                                    processes.Add(process);
-                                }
+                    char? charToAdd = MapKeyToChar(pressedKey);
 
-                                if (process == "TypeAssist")
-                                {
-                                    NoCompletion(processes);
-                                    CompletionService.EmulateBackspace();
-                                }
-                                string currentBuffer = new string(buffer.ToArray());
-                                Debug.WriteLine($"Current Buffer: {currentBuffer}");
-                            }
-                            return; 
-                        case Key.OemComma:
-                            charToAdd = ',';
-                            break;
-                        case Key.OemPeriod:
-                            charToAdd = '.';
-                            break;
-                        default:
-                            string? keyString = _keyconverter.ConvertToString(pressedKey);
-                            if (char.TryParse(keyString, out char keyChar))
-                            {
-
-                                charToAdd = keyChar;
-
-                            }
-                            break;
-                    }
- 
                     if (charToAdd.HasValue)
                     {
-                        if (process != null)
-                        {
-                            processes.Add(process);
-                        }
-
-                        if (process == "TypeAssist")
-                        {
-                            NoCompletion(processes);
-                            CompletionService.EmulateSingleKey(charToAdd.Value);
-                            buffer.Add(charToAdd.Value);
-                            return;
-                        }
-
-                        buffer.Add(charToAdd.Value);
-
-                        if (_cts != null)
-                        {
-                            _cts.Cancel();
-                            _cts.Dispose();
-                        }
-
-                        _cts = new CancellationTokenSource();
-
-                        string currentText = new string(buffer.ToArray());
-
-                        onBufferChanged?.Invoke(currentText);
+                        ProcessInput(buffer, processes, process, charToAdd.Value, onBufferChanged);
                     }
                 });
             }
@@ -172,6 +106,143 @@ namespace TypeAssist
             return "Unknown";
         }
 
+        /// <summary>
+        /// Determines whether the specified key press should be ignored due to debounce timing.
+        /// </summary>
+        /// <remarks>This method is typically used to prevent processing rapid, repeated key presses by
+        /// ignoring inputs that occur within a short time frame. The debounce interval is 100 milliseconds.</remarks>
+        /// <param name="key">The key to evaluate for debounce.</param>
+        /// <returns>true if the key press occurred within the debounce interval and should be ignored; otherwise, false.</returns>
+        private static bool IsDebounced(Key key)
+        {
+            if (_lastKeyPressTimes.ContainsKey(key))
+            {
+                var timeSinceLast = DateTime.Now - _lastKeyPressTimes[key];
+                if (timeSinceLast.TotalMilliseconds < 100) // 100ms Debounce
+                {
+                    return true;
+                }
+            }
+            _lastKeyPressTimes[key] = DateTime.Now;
+            return false;
+        }
+
+        /// <summary>
+        /// Maps a specified key value to its corresponding character representation, if available.
+        /// </summary>
+        /// <remarks>This method provides character mappings for select keys. For keys not explicitly
+        /// handled, an attempt is made to convert the key to a string representation, which may return null if no
+        /// mapping is possible.</remarks>
+        /// <param name="key">The key to convert to a character. Common keys such as Space, Enter, Tab, OemComma, and OemPeriod are mapped
+        /// to their respective characters.</param>
+        /// <returns>A character representing the specified key if a mapping exists; otherwise, null.</returns>
+        private static char? MapKeyToChar(Key key)
+        {
+            return key switch
+            {
+                Key.Space => ' ',
+                Key.Enter => '\n',
+                Key.Tab => '\t',
+                Key.OemComma => ',',
+                Key.OemPeriod => '.',
+                _ => TryConvertToString(key)
+            };
+        }
+        
+        /// <summary>
+        /// Attempts to convert the specified key to its corresponding character representation.
+        /// </summary>
+        /// <param name="key">The key to convert to a character.</param>
+        /// <returns>A character representing the key if the conversion is successful; otherwise, null.</returns>
+        private static char? TryConvertToString(Key key)
+        {
+            string? keyString = _keyconverter.ConvertToString(key);
+            if (char.TryParse(keyString, out char keyChar))
+            {
+                return keyChar;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Handles a backspace operation by removing the last character from the input buffer and updating the process
+        /// list as needed.
+        /// </summary>
+        /// <remarks>If the process is "TypeAssist", additional completion-related actions are performed
+        /// after the backspace is handled.</remarks>
+        /// <param name="buffer">The buffer containing the current sequence of input characters. The last character will be removed if the
+        /// buffer is not empty.</param>
+        /// <param name="processes">The list of process names to which the current process may be added if applicable.</param>
+        /// <param name="process">The name of the process associated with the backspace event. If not null, it may be added to the process
+        /// list and may trigger additional actions if it equals "TypeAssist".</param>
+        private static void HandleBackspace(List<char> buffer, List<string> processes, string process)
+        {
+            if (buffer.Count > 0)
+            {
+                buffer.RemoveAt(buffer.Count - 1);
+                Debug.WriteLine("Backspace Pressed. Removed last character.");
+
+                if (process != null)
+                {
+                    processes.Add(process);
+                }
+
+                if (process == "TypeAssist")
+                {
+                    NoCompletion(processes);
+                    CompletionService.EmulateBackspace();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Processes the specified input character, updates the buffer and process list, and notifies listeners of
+        /// buffer changes.
+        /// </summary>
+        /// <param name="buffer">The list of characters representing the current input buffer. The method adds the specified character to
+        /// this buffer.</param>
+        /// <param name="processes">The collection of process names that tracks the sequence of input processing steps. The method may add the
+        /// current process to this list.</param>
+        /// <param name="process">The name of the process to apply for the input character. If not null, it is added to the process list.</param>
+        /// <param name="charToAdd">The character to be added to the input buffer and processed according to the specified process.</param>
+        /// <param name="onBufferChanged">An action delegate that is invoked with the updated buffer text after the input character is processed. Can
+        /// be null if no notification is required.</param>
+        private static void ProcessInput(List<char> buffer, List<string> processes, string process, char charToAdd, Action<string> onBufferChanged)
+        {
+            if (process != null)
+            {
+                processes.Add(process);
+            }
+
+            if (process == "TypeAssist")
+            {
+                NoCompletion(processes);
+                CompletionService.EmulateSingleKey(charToAdd);
+                buffer.Add(charToAdd);
+                return;
+            }
+
+            buffer.Add(charToAdd);
+
+            if (_cts != null)
+            {
+                _cts.Cancel();
+                _cts.Dispose();
+            }
+
+            _cts = new CancellationTokenSource();
+
+            string currentText = new string(buffer.ToArray());
+
+            onBufferChanged?.Invoke(currentText);
+        }
+
+
+        /// <summary>
+        /// If the user does not select a completion, this method brings the previously active window back to the foreground 
+        /// and emulates the pressed key.
+        /// </summary>
+        /// <param name="processes">a list of processes to get the last window before a recommendation was given.</param>
         private static void NoCompletion(List<string> processes)
         {
             IntPtr handleEmulation;

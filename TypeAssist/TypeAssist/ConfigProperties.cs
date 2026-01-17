@@ -5,7 +5,7 @@ using System.Text;
 
 namespace TypeAssist
 {
-    internal class ModeSettings:ConfigurationSection
+    internal class ConfigProperties:ConfigurationSection
     {
 
         [ConfigurationProperty("Mode", DefaultValue = "Wörter")]

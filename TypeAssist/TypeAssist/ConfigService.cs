@@ -4,15 +4,30 @@ using System.Windows.Controls.Primitives;
 
 namespace TypeAssist
 {
-    class SettingService
+    class ConfigService
     {
         public static Configuration Config { get; private set; } = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
-        private static ModeSettings _settings = Config.GetSection("ModeSettings") as ModeSettings ?? new ModeSettings();
-        public static event Action SettingsUpdated;
+        private static ConfigProperties _settings = Config.GetSection("ModeSettings") as ConfigProperties ?? new ConfigProperties();
+        public static event Action? SettingsUpdated;
 
-        public static ModeSettings getSettings()
+        public static ConfigProperties GetSettings()
         {
             return _settings;
+        }
+
+        /// <summary>
+        /// Ensures that the "ModeSettings" configuration section exists, creating and saving it if necessary.
+        /// </summary>
+        /// <remarks>Call this method before accessing the "ModeSettings" section to guarantee it is
+        /// present in the configuration. If the section does not exist, it will be added and the configuration will be
+        /// saved.</remarks>
+        public static void CheckConfigSection()
+        {
+            if (Config.Sections["ModeSettings"] is null)
+            {
+                Config.Sections.Add("ModeSettings", new ConfigProperties());
+                Config.Save();
+            }
         }
 
         public static void SaveAndReload()
@@ -23,7 +38,7 @@ namespace TypeAssist
 
                 ConfigurationManager.RefreshSection("ModeSettings");
 
-                _settings = Config.GetSection("ModeSettings") as ModeSettings ?? new ModeSettings();
+                _settings = Config.GetSection("ModeSettings") as ConfigProperties ?? new ConfigProperties();
 
                 SettingsUpdated?.Invoke();
             }
@@ -33,34 +48,9 @@ namespace TypeAssist
             }
         }
 
-        public static void ApplySuggestionPosition(Popup popup)
-        {
-            switch (_settings.SuggestionPosition)
-            {
-                case "rechts":
-                    popup.Placement = PlacementMode.Right;
-                    break;
-                case "links":
-                    popup.Placement = PlacementMode.Left;
-                    break;
-                case "oben":
-                    popup.Placement = PlacementMode.Top;
-                    break;
-                case "unten":
-                    popup.Placement = PlacementMode.Bottom;
-                    break;
-                case "mitte":
-                    popup.Placement = PlacementMode.Center;
-                    break;
-                default:
-                    popup.Placement = PlacementMode.MousePoint;
-                    break;
-            }
-        }
-
         public static string ApplyMode(string context)
         {
-            string? prompt = null;
+            string? prompt;
             switch (_settings.Mode)
             {
                 case "Silben":
@@ -87,7 +77,6 @@ namespace TypeAssist
                     UserInput: '{context}' -> Output:";
                     break;
             }
-
             return prompt;
         }
     }

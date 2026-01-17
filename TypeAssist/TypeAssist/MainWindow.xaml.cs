@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Threading;
 
@@ -13,59 +14,38 @@ namespace TypeAssist
     {
         [DllImport("user32.dll")]
         private static extern int SetForegroundWindow(IntPtr hWnd);
-        private CancellationTokenSource _currentCts;
-        
-        private List<char> buffer = new List<char>();
-        
-        private static List<string> processes = new List<string>();
+        private CancellationTokenSource? _currentCts;
 
-        Configuration config = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
+        private List<char> buffer = new List<char>();
+
+        private static List<string> processes = new List<string>();
 
         public MainWindow()
         {
             InitializeComponent();
-            Debug.WriteLine("MainWindow: Initialized component");
 
-            if (config.Sections["ModeSettings"] is null)
-            {
-                config.Sections.Add("ModeSettings", new ModeSettings());
-                config.Save();
-            }
+            ConfigService.CheckConfigSection();
 
             KeyboardSubscribe();
-            Debug.WriteLine("MainWindow: Subscribed to InputListenerService");
 
-            SettingService.ApplySuggestionPosition(testPopup);
+            UpdatePopupPosition();
 
-            SettingService.SettingsUpdated += () =>
-            {
-                SettingService.ApplySuggestionPosition(testPopup);
-                Debug.WriteLine("MainWindow: Applied new suggestion position from settings");
-            };
+            ConfigService.SettingsUpdated += UpdatePopupPosition;
         }
 
         private async Task HandleNewInputAsync(string currentText)
         {
-            Debug.WriteLine("HandleNewInputAsync: Enter");
             _currentCts?.Cancel();
             _currentCts = new CancellationTokenSource();
             var token = _currentCts.Token;
 
             try
             {
-                Dispatcher.Invoke(() => testblock.Text = currentText);
-                Debug.WriteLine($"HandleNewInputAsync: Updated UI textblock: '{currentText}'");
-
                 var sw = Stopwatch.StartNew();
-                Debug.WriteLine("HandleNewInputAsync: Requesting suggestion from LlmService...");
-
-
 
                 var rawSuggestion = await App.LlmService.GetNextWordAsync(currentText, token);
 
                 sw.Stop();
-                Debug.WriteLine($"HandleNewInputAsync: LLM request finished in {sw.ElapsedMilliseconds} ms. Suggestion='{rawSuggestion}'");
-
 
                 if (!token.IsCancellationRequested && !string.IsNullOrEmpty(rawSuggestion))
                 {
@@ -76,8 +56,8 @@ namespace TypeAssist
                     Dispatcher.Invoke(() =>
                     {
                         ListBox listBox = GenerateListBox(suggestions);
-                        testPopup.Child = listBox;
-                        testPopup.IsOpen = true;
+                        recommendations.Child = listBox;
+                        recommendations.IsOpen = true;
 
                         TypeAssistForeground();
 
@@ -95,12 +75,10 @@ namespace TypeAssist
                                 listBox.Focus();
                             }
                         }));
-                        Debug.WriteLine("HandleNewInputAsync: Popup opened with suggestion");
-
                     });
                 }
             }
-            catch (OperationCanceledException) 
+            catch (OperationCanceledException)
             {
                 Debug.WriteLine("HandleNewInputAsync: Canceled because user was faster.");
             }
@@ -114,19 +92,71 @@ namespace TypeAssist
             }
         }
 
+        /// <summary>
+        /// Subscribes to keyboard input events and settings hotkey using the input listener service.
+        /// </summary>
+        /// <remarks>This method enables listening for keyboard input and hotkey triggers by registering
+        /// appropriate event handlers with the input listener service. It should be called to initialize input
+        /// monitoring for the current buffer and process context.</remarks>
         private void KeyboardSubscribe()
         {
             InputListenerService.Subscribe(buffer, processes, async (currentText) =>
             {
-                Debug.WriteLine($"MainWindow: Received input callback. CurrentText='{currentText}'");
                 await HandleNewInputAsync(currentText);
             });
-            InputListenerService.SubscribeSetting();
+            InputListenerService.SubscribeSettingsHotkey();
         }
 
+        /// <summary>
+        /// Updates the position and placement of the popup control based on the current suggestion position settings.
+        /// </summary>
+        /// <remarks>This method retrieves the user's suggestion position preference from the settings and
+        /// adjusts the popup's placement accordingly. It should be called whenever the suggestion position setting
+        /// changes to ensure the popup appears in the correct location.</remarks>
+        private void UpdatePopupPosition()
+        {
+            var settings = ConfigService.GetSettings();
+
+            switch (settings.SuggestionPosition)
+            {
+                case "rechts":
+                    recommendations.PlacementTarget = AnchorRight;
+                    recommendations.Placement = PlacementMode.Left;
+                    break;
+                case "links":
+                    recommendations.PlacementTarget = AnchorLeft;
+                    recommendations.Placement = PlacementMode.Right;
+                    break;
+                case "oben":
+                    recommendations.PlacementTarget = AnchorTop;
+                    recommendations.Placement = PlacementMode.Bottom;
+                    break;
+                case "unten":
+                    recommendations.PlacementTarget = AnchorBottom;
+                    recommendations.Placement = PlacementMode.Top;
+                    break;
+                case "mitte":
+                    recommendations.PlacementTarget = null;
+                    recommendations.Placement = PlacementMode.Center;
+                    break;
+                default:
+                    recommendations.PlacementTarget = null;
+                    recommendations.Placement = PlacementMode.MousePoint;
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// Creates a new ListBox control populated with the specified data and configured to confirm selection on Tab
+        /// or mouse click.
+        /// </summary>
+        /// <remarks>The returned ListBox raises selection confirmation when the user presses the Tab key
+        /// or clicks an item with the mouse. The caller is responsible for adding the ListBox to the visual tree and
+        /// managing its lifecycle.</remarks>
+        /// <param name="data">An array of strings to display as items in the ListBox. Can be null or empty to create an empty ListBox.</param>
+        /// <returns>A ListBox control with its ItemsSource set to the provided data and event handlers for confirming selection.</returns>
         private ListBox GenerateListBox(string[] data)
         {
-            Debug.WriteLine($"GenerateListBox: Creating ListBox with {data?.Length ?? 0} items");
             var listbox = new ListBox
             {
                 ItemsSource = data
@@ -158,7 +188,17 @@ namespace TypeAssist
             return listbox;
         }
 
-        private void ConfirmSelection(string selectedOption) {
+        /// <summary>
+        /// Confirms the user's selection by updating the UI, bringing the target process window to the foreground, and
+        /// emulating key input based on the selected option.
+        /// </summary>
+        /// <remarks>This method sets the selected option in the UI, brings the relevant process window to
+        /// the foreground, and sends the selected text as emulated keystrokes. The method also updates the input buffer
+        /// and closes the associated popup. Ensure that the target process is running and accessible before calling
+        /// this method.</remarks>
+        /// <param name="selectedOption">The option selected by the user to be confirmed and sent as emulated input. Cannot be null or empty.</param>
+        private void ConfirmSelection(string selectedOption)
+        {
             IntPtr handleEmulation;
 
             if (processes.Count == 1)
@@ -172,15 +212,10 @@ namespace TypeAssist
                 handleEmulation = process[0].MainWindowHandle;
             }
 
-            Debug.WriteLine($"Recommendation selected: {selectedOption}");
-            testblock.Text = selectedOption;
-            Debug.WriteLine($"RecommendationList_SelectionChanged: Setting foreground to process handle {handleEmulation}");
             SetForegroundWindow(handleEmulation);
-            Debug.WriteLine("RecommendationList_SelectionChanged: Calling CompletionService.EmulateKeys");
             CompletionService.EmulateKeys(selectedOption, buffer);
             buffer.Add(' ');
-            testPopup.IsOpen = false;
-            Debug.WriteLine("RecommendationList_SelectionChanged: Emulation complete and popup closed");
+            recommendations.IsOpen = false;
         }
 
         private static void TypeAssistForeground()

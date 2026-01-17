@@ -34,7 +34,7 @@ namespace TypeAssist.Services
         {
             try
             {
-                var prompt = SettingService.ApplyMode(context);
+                var prompt = ConfigService.ApplyMode(context);
 
                 var payload = new OllamaRequest
                 {
