@@ -1,4 +1,5 @@
-﻿using System.Configuration;
+﻿using OpenAI.Containers;
+using System.Configuration;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows;
@@ -37,29 +38,119 @@ namespace TypeAssist
 
         private async Task HandleNewInputAsync(string currentText)
         {
+
+            if (string.IsNullOrWhiteSpace(currentText))
+            {
+                Debug.WriteLine("[HandleNewInputAsync] Input empty/whitespace. Skipping LLM request.");
+                Dispatcher.Invoke(() =>
+                {
+                    recommendations.IsOpen = false;
+                });
+                return;
+            }
+                Debug.WriteLine($"buffer: {currentText}");
             _currentCts?.Cancel();
             _currentCts = new CancellationTokenSource();
             var token = _currentCts.Token;
-
+            bool useTravelDistance = ConfigService.GetSettings().UseTravelDistance;
+            //bool limitContext = ConfigService.GetSettings().UseLimitedContext;
+            // int contextSize = ConfigService.GetSettings().ContextLength;
             try
             {
                 var sw = Stopwatch.StartNew();
 
-                var rawSuggestion = await App.LlmService.GetNextWordAsync(currentText, token);
+                string contextToSend = currentText;
+
+                /*if (contextToSend.Length > contextSize && limitContext)
+                {
+                    contextToSend = contextToSend.Substring(contextToSend.Length - 200);
+                }
+                */
+
+                if (contextToSend.Length > 200)
+                {
+                    contextToSend = contextToSend.Substring(contextToSend.Length - 200);
+                }
+
+                var rawSuggestion = await App.LlmService.GetNextWordAsyncRemote(contextToSend, token);
 
                 sw.Stop();
 
                 if (!token.IsCancellationRequested && !string.IsNullOrEmpty(rawSuggestion))
                 {
-                    var suggestions = rawSuggestion.Split('|', StringSplitOptions.RemoveEmptyEntries)
-                                           .Select(s => s.Trim())
-                                           .ToList();
+                        
+                    List<string> suggestions = rawSuggestion.Split('|', StringSplitOptions.RemoveEmptyEntries)
+                                                   .Select(s => s.Trim())
+                                                   .ToList();
 
-                    Dispatcher.Invoke(() =>
+                    string lastWord = currentText.Split(' ').LastOrDefault() ?? "";
+                    string prefix = "";
+
+                    if (currentText.Length >= lastWord.Length)
                     {
-                        ListBox listBox = GenerateListBox(suggestions);
-                        recommendations.Child = listBox;
-                        recommendations.IsOpen = true;
+                        prefix = currentText.Substring(0, currentText.Length - lastWord.Length);
+                    }
+
+                    // Only strip if we actually have a prefix (prevent stripping empty strings)
+                    if (!string.IsNullOrEmpty(prefix))
+                    {
+                        for (int i = 0; i < suggestions.Count; i++)
+                        {
+                            // Check if the suggestion starts with the prefix (case-insensitive)
+                            if (suggestions[i].StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                            {
+                                // Replace the suggestion with just the completion part
+                                // Example: "table it" -> "it"
+                                suggestions[i] = suggestions[i].Substring(prefix.Length);
+                            }
+                        }
+                    }
+
+                    List<string> filteredSuggestions; 
+
+                    if (useTravelDistance)
+                    {
+                        // 2. Status vor dem Filtern
+                        Debug.WriteLine("--- Travel Distance Active ---");
+                        Debug.WriteLine($"[TypeAssist] Current Input: '{currentText}' (Length: {currentText.Length})");
+                        Debug.WriteLine($"[TypeAssist] Candidates ({suggestions.Count}): {String.Join(", ", suggestions)}");
+                        Debug.WriteLine($"last word was: {lastWord}");
+
+                        // 3. Filter aufrufen
+                        filteredSuggestions = Traveldistance.GetTravelDistanceAdjustedSuggestions(lastWord, suggestions);
+
+                        Debug.WriteLine($"[TypeAssist] FINAL RESULT: {String.Join(", ", filteredSuggestions)}");
+                        Debug.WriteLine("--------------------------------------------------");
+                    } else
+                    {
+                        Debug.WriteLine("--- Travel Distance Deactivated ---");
+                        Debug.WriteLine($"[TypeAssist] Current Input: '{currentText}'");
+
+                        // Optional: Trim punctuation from the end of the last word to allow predictions like "snow." -> "snowy"
+                        // string cleanLastWord = lastWord.TrimEnd('.', ',', '!', '?'); 
+                        // For now, we stick to the standard logic:
+
+                        Debug.WriteLine($"[TypeAssist] Last Word: '{lastWord}'");
+
+                        filteredSuggestions = suggestions
+                            // FIX: Check against 'lastWord', NOT 'currentText'
+                            .Where(s => s.StartsWith(lastWord, StringComparison.OrdinalIgnoreCase))
+                            // Ensure the suggestion is actually longer than what we have
+                            .Where(s => s.Length > lastWord.Length)
+                            .ToList();
+
+                        Debug.WriteLine($"[TypeAssist] Candidates ({suggestions.Count}): {String.Join(", ", suggestions)}");
+                        Debug.WriteLine($"[TypeAssist] FINAL RESULT: {String.Join(", ", filteredSuggestions)}");
+                    }
+
+
+                    if (filteredSuggestions.Count > 0)
+                    {
+                        Dispatcher.Invoke(() =>
+                        {
+                            ListBox listBox = GenerateListBox(filteredSuggestions.ToArray());
+                            recommendations.Child = listBox;
+                            recommendations.IsOpen = true;
 
                             TypeAssistForeground();
 
@@ -69,15 +160,18 @@ namespace TypeAssist
                                 {
                                     listBox.SelectedIndex = 0;
 
-                                var item = (ListBoxItem)listBox.ItemContainerGenerator.ContainerFromIndex(0);
-                                item?.Focus();
-                            }
-                            else
-                            {
-                                listBox.Focus();
-                            }
-                        }));
-                    });
+                                    var item = (ListBoxItem)listBox.ItemContainerGenerator.ContainerFromIndex(0);
+                                    item?.Focus();
+                                }
+                                else
+                                {
+                                    listBox.Focus();
+                                }
+                            }));
+                        });
+                    }
+
+                    
                 }
             }
             catch (OperationCanceledException)
@@ -199,25 +293,75 @@ namespace TypeAssist
         /// and closes the associated popup. Ensure that the target process is running and accessible before calling
         /// this method.</remarks>
         /// <param name="selectedOption">The option selected by the user to be confirmed and sent as emulated input. Cannot be null or empty.</param>
-        private void ConfirmSelection(string selectedOption)
+        private async void ConfirmSelection(string selectedOption)
         {
-            IntPtr handleEmulation;
-
-            if (processes.Count == 1)
+            try
             {
-                Process[] process = Process.GetProcessesByName(processes[0]);
-                handleEmulation = process[0].MainWindowHandle;
+                // 1. PAUSE LISTENING to prevent double-entry of emulated keys
+                InputListenerService.IgnoreInput = true;
+
+                IntPtr handleEmulation;
+
+                if (processes.Count == 1)
+                {
+                    Process[] process = Process.GetProcessesByName(processes[0]);
+                    handleEmulation = process[0].MainWindowHandle;
+                }
+                else
+                {
+                    Process[] process = Process.GetProcessesByName(processes[processes.Count - 1]);
+                    handleEmulation = process[0].MainWindowHandle;
+                }
+
+                SetForegroundWindow(handleEmulation);
+
+                // 2. Emulate the keystrokes (types the difference between buffer and suggestion)
+                CompletionService.EmulateKeys(selectedOption, buffer);
+
+                // 3. Manually update the buffer to the correct state
+                UpdateBufferWithSelection(selectedOption);
+
+                recommendations.IsOpen = false;
             }
-            else
+            finally
             {
-                Process[] process = Process.GetProcessesByName(processes[processes.Count - 1]);
-                handleEmulation = process[0].MainWindowHandle;
+                // 4. Wait a short moment for OS hooks to clear, then UNPAUSE
+                await Task.Delay(50);
+                InputListenerService.IgnoreInput = false;
+            }
+        }
+
+
+        private void UpdateBufferWithSelection(string selectedOption)
+        {
+            // Remove the partial word currently at the end of the buffer
+            // Example Buffer: ['H', 'e', 'l']
+            // Selected: "Hello"
+
+            // Convert buffer to string to find the last word boundary
+            string currentText = new string(buffer.ToArray());
+
+            // Simple logic: remove characters until we hit a space or empty
+            while (buffer.Count > 0 && buffer.Last() != ' ')
+            {
+                buffer.RemoveAt(buffer.Count - 1);
             }
 
-            SetForegroundWindow(handleEmulation);
-            CompletionService.EmulateKeys(selectedOption, buffer);
-            buffer.Add(' ');
-            recommendations.IsOpen = false;
+            // Append the full selected option
+            buffer.AddRange(selectedOption.ToCharArray());
+
+            // Check Mode for Spacing
+            var settings = ConfigService.GetSettings();
+
+            // Only add space in default (Word) mode. 
+            // Silben (Syllables) and Buchstaben (Characters) continue the word immediately.
+            if (settings.Mode != "Silben" && settings.Mode != "Buchstaben")
+            {
+                buffer.Add(' ');
+            }
+
+            // Debug output to verify sync
+            Debug.WriteLine($"[Sync] Buffer updated manually to: '{new string(buffer.ToArray())}'");
         }
 
         private static void TypeAssistForeground()

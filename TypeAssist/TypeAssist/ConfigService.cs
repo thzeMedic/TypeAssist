@@ -1,4 +1,5 @@
-﻿using System.Configuration;
+﻿using OpenAI.Chat;
+using System.Configuration;
 using System.Diagnostics;
 using System.Windows.Controls.Primitives;
 
@@ -48,36 +49,54 @@ namespace TypeAssist
             }
         }
 
-        public static string ApplyMode(string context)
+
+
+        public static (string, string) ApplyMode(string context)
         {
             string? prompt;
+            string? systemPrompt;
+            string baseInstructions = "Your task: complete the user's input exactly 5 suggestions, where each suggestion is separated by this delimiter: '|' " +
+                                      "Rules: No explanations. No punctuation. No polite conversation. Only the suggestions in the specified format.";
+
             switch (_settings.Mode)
             {
                 case "Silben":
-                    prompt = "return always this single word: Alex";
-                    break;
-                case "Buchstaben":
-                    prompt = "return always this single word: Amer";
-                    break;
-                default:
-                    prompt = $@"
-                    You are a very smart autocomplete program. 
-                    Rules:
-                    - Provide 3 suggestions that complete the last word.
-                    - Each suggestion must be ONE WORD only.
-                    - Format: word1|word2|word3
-                    - No explanations, no punctuation, no extra text.
 
-                    Examples:
-                    - Input: 'I like appl' -> Output: 'apple|apples|applied'
-                    - Input: 'The weather is be' -> Output: 'beautiful|better|best'
-                    - Input: 'Wait for the applic' -> Output: 'application|applicant|applicable'
-                    
-                    Task: Complete the last unfinished word of the UserInput.
-                    UserInput: '{context}' -> Output:";
+                    systemPrompt = "You are a smart text completer. " +
+                                    baseInstructions +
+                                    " Mode: SYLLABLES/SEGMENTS. " +
+                                    "Format: input+extension1|input+extension2|... " +
+                                    "Instruction: Complete the current word with the next logical syllable or character sequence. " +
+                                    "Rules: 1. If the word is almost complete, finish it. 2. If it is the start of a long word, add one syllable. " +
+                                    "Example 1: Input 'Com' -> Suggestion 'Compu'. " +
+                                    "Example 2: Input 'Sno' -> Suggestion 'Snow' (finishes the word).";
+
+                    prompt = $"Input: {context}";
+                    break;
+
+                case "Buchstaben":
+                    systemPrompt = "You are a precise character predictor. " +
+                                   baseInstructions +
+                                   " Mode: CHARACTERS. " +
+                                   "Format: input+nextChar1|input+nextChar2|... " +
+                                   "Instruction: Extend the user's input by exactly ONE character. " +
+                                   "Always use lowercase for the appended character." +
+                                   "Example: Input 'Hous' -> Suggestion 'House' (if 'e' is likely) or 'Housi' (if 'i' is likely).";
+
+                    prompt = $"Input: {context}";
+                    break;
+
+                default: 
+                    systemPrompt = "You are a precise autocomplete engine. " +
+                                   baseInstructions +
+                                   " Mode: FULL WORDS. " +
+                                   "Format: word1|word2|word3|word4|word5 " +
+                                   "Instruction: Complete the user's input to a full meaningful word.";
+
+                    prompt = $"Input: {context}";
                     break;
             }
-            return prompt;
+            return (systemPrompt, prompt);
         }
     }
 }

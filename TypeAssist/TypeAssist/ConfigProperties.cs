@@ -15,11 +15,32 @@ namespace TypeAssist
             set { this["Mode"] = value; }
         }
 
+        [ConfigurationProperty("UseTravelDistance", DefaultValue = true)]
+        public bool UseTravelDistance
+        {
+            get { return (bool)this["UseTravelDistance"]; }
+            set { this["UseTravelDistance"] = value; }
+        }
+
         [ConfigurationProperty("SuggestionPosition", DefaultValue = "Maus")]
         public string SuggestionPosition
         {
             get { return (string)this["SuggestionPosition"]; }
             set { this["SuggestionPosition"] = value; }
+        }
+
+        [ConfigurationProperty("UseLimitedContext", DefaultValue = true)]
+        public bool UseLimitedContext
+        {
+            get { return (bool)this["UseLimitedContext"]; }
+            set { this["UseLimitedContext"] = value; }
+        }
+
+        [ConfigurationProperty("ContextLength", DefaultValue = 200)]
+        public int ContextLength
+        {
+            get { return (int)this["ContextLength"]; }
+            set { this["ContextLength"] = value; }
         }
     }
 }

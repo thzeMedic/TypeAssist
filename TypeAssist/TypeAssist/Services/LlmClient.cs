@@ -42,16 +42,14 @@ namespace TypeAssist.Services
             try
             {
                 var swRemote = Stopwatch.StartNew();
-                
+
+                var (systemPrompt, prompt) = ConfigService.ApplyMode(context);
+
                 var messages = new ChatMessage[]
                 {
-                    new SystemChatMessage(
-                        "You are a precise autocomplete engine. " +
-                        "Your task: complete the user's input exactly 5 suggestions, where each suggestion is one word and separated by this delimiter: '|' " +
-                        "Format (Suggestion): word1|word2|word3|word4|word5 " +
-                        "Rules: No explanations. No punctuation. No polite conversation. Only the words in the specified format."),
+                    new SystemChatMessage(systemPrompt),
 
-                    new UserChatMessage($"Input: {context}")
+                    new UserChatMessage(prompt)
                 };
 
                 var options = new ChatCompletionOptions
@@ -91,12 +89,12 @@ namespace TypeAssist.Services
         {
             try
             {
-                var prompt = ConfigService.ApplyMode(context);
+                var (systemPrompt, prompt) = ConfigService.ApplyMode(context);
 
                 var payload = new OllamaRequest
                 {
                     Model = "qwen2.5:0.5b",
-                    Prompt = prompt,
+                    Prompt = systemPrompt + prompt,
                     Options = new OllamaOptions
                     {
                         NumPredict = 10,      

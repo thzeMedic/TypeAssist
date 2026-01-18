@@ -38,7 +38,11 @@ namespace TypeAssist
                     isim.Keyboard.KeyPress(VirtualKeyCode.VK_A + (char.ToUpper(recommendationArray[i]) - 'A'));
                 }
             }
-            isim.Keyboard.KeyPress(VirtualKeyCode.SPACE);
+
+            if (!(ConfigService.GetSettings().Mode == "Silben") && !(ConfigService.GetSettings().Mode == "Buchstaben"))
+            {
+                isim.Keyboard.KeyPress(VirtualKeyCode.SPACE);
+            }
         }
 
         /// <summary>

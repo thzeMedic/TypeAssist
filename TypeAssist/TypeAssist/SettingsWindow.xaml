@@ -14,10 +14,11 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-
+        
         <Label Content="Mode: " 
                Grid.Column="0" Grid.Row="0" 
                VerticalAlignment="Center" HorizontalAlignment="Right" Margin="5"/>
@@ -33,11 +34,25 @@
                   SelectedItem="{Binding SuggestionPosition}" 
                   Grid.Column="1" Grid.Row="1"
                   Height="25" Width="100" HorizontalAlignment="Left" Margin="5"/>
-        
+
+        <Label Content="Smart Filter:" 
+               Grid.Column="0" Grid.Row="2" 
+               HorizontalAlignment="Right" VerticalAlignment="Center" Margin="5"
+               ToolTip="Aktiviert die Travel-Distance Berechnung"/>
+        <CheckBox x:Name="travelDistanceCheckbox"
+                  IsChecked="{Binding UseTravelDistance}"
+                  Content="Aktivieren"
+                  Grid.Column="1" Grid.Row="2"
+                  HorizontalAlignment="Left" VerticalAlignment="Center" Margin="5"/>
+
+       
         <Button x:Name="Save" Content="Save"
                 Grid.Column="1" Grid.Row="3"
                 VerticalAlignment="Bottom" Width="75"
                 Height="25" HorizontalAlignment="Center"
                 Margin="5" Click="Save_Click"/>
+        <Label Content="Vorschlagposition:" 
+            Grid.Column="0" Grid.Row="1" 
+            HorizontalAlignment="Left" VerticalAlignment="Center" Margin="13,0,0,0"/>
     </Grid>
 </Window>

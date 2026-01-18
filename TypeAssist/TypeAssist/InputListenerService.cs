@@ -20,7 +20,7 @@ namespace TypeAssist
 
         [DllImport("user32.dll")]
         private static extern int SetForegroundWindow(IntPtr hWnd);
-
+        public static bool IgnoreInput { get; set; } = false;
         private static KeyboardListener _keyboardListener = new KeyboardListener();
         private static readonly HashSet<Key> _subscribedKeys = new HashSet<Key>()
         {
@@ -34,7 +34,7 @@ namespace TypeAssist
         };
 
         private static KeyConverter _keyconverter = new KeyConverter();
-
+        private static bool clearBuffer = false;
         private static CancellationTokenSource _cts;
         private static Key _lastKeyPressed = Key.None; 
         private static Dictionary<Key, DateTime> _lastKeyPressTimes = new Dictionary<Key, DateTime>();
@@ -46,6 +46,14 @@ namespace TypeAssist
             {
                 SettingsWindow settingsWindow = new SettingsWindow();
                 settingsWindow.Show();
+            });
+        }
+
+        public static void SubscribeClearBufferHotkey()
+        {
+            _keyboardListener.SubscribeCombination([Key.LeftCtrl, Key.F2], () =>
+            {
+                clearBuffer = true;
             });
         }
 
@@ -66,6 +74,7 @@ namespace TypeAssist
 
                 _keyboardListener.Subscribe(keyEnum, pressedKey =>
                 {
+                    if (IgnoreInput) return;
                     if (IsDebounced(pressedKey)) return;
 
                     var process = GetForegroundProcessName();
@@ -83,6 +92,15 @@ namespace TypeAssist
                     {
                         ProcessInput(buffer, processes, process, charToAdd.Value, onBufferChanged);
                     }
+
+                    if (_travelDistanceTilLastKey.ToString() != null)
+                    {
+                        _travelDistanceTilLastKey = Traveldistance.CalcTravelDistance(_lastKeyPressed.ToString(), charToAdd.ToString());
+                    }
+
+                    Debug.WriteLine($"TravelDistance : {_travelDistanceTilLastKey}");
+
+                    _lastKeyPressed = pressedKey;
                 });
             }
         }
@@ -214,6 +232,7 @@ namespace TypeAssist
             if (process != null)
             {
                 processes.Add(process);
+                if (processes.Count > 50) processes.RemoveAt(0); 
             }
 
             if (process == "TypeAssist")
@@ -225,6 +244,27 @@ namespace TypeAssist
             }
 
             buffer.Add(charToAdd);
+
+            try
+            {
+                var settings = ConfigService.GetSettings();
+                if (charToAdd == ' ' && (settings.Mode == "Silben" || settings.Mode == "Buchstaben"))
+                {
+                    buffer.Clear();
+                    Debug.WriteLine($"[InputListener] Buffer cleared because of Space in Mode '{settings.Mode}'");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[InputListener] Error checking settings: {ex.Message}");
+            }
+
+            if (clearBuffer)
+            {
+                buffer.Clear();
+                Debug.WriteLine("Buffer has been cleared.");
+                clearBuffer = false;
+            }
 
             if (_cts != null)
             {
