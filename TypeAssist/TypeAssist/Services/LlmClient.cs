@@ -91,21 +91,7 @@ namespace TypeAssist.Services
         {
             try
             {
-                var prompt = $@"
-                    You are a very smart autocomplete program. 
-                    Rules:
-                    - Provide 3 suggestions that complete the last word.
-                    - Each suggestion must be ONE WORD only.
-                    - Format: word1|word2|word3
-                    - No explanations, no punctuation, no extra text.
-
-                    Examples:
-                    - Input: 'I like appl' -> Output: 'apple|apples|applied'
-                    - Input: 'The weather is be' -> Output: 'beautiful|better|best'
-                    - Input: 'Wait for the applic' -> Output: 'application|applicant|applicable'
-                    
-                    Task: Complete the last unfinished word of the UserInput.
-                    UserInput: '{context}' -> Output:";
+                var prompt = ConfigService.ApplyMode(context);
 
                 var payload = new OllamaRequest
                 {
