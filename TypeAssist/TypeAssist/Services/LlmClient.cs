@@ -1,4 +1,7 @@
-﻿using System;
+﻿using OpenAI.Chat;
+using OpenAI.Conversations;
+using System;
+using System.ClientModel;
 using System.Diagnostics;
 using System.Net.Http;
 using System.Net.Http.Json; 
@@ -11,26 +14,80 @@ namespace TypeAssist.Services
     {
         private readonly HttpClient _httpClient;
         private const string ApiUrl = "http://localhost:11434/api/generate";
-
+        private readonly ChatClient _client;
         public LlmClient()
         {
+            string apiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY") ?? "";
+            _client = new ChatClient(model: "gpt-4o-mini", apiKey: apiKey);
             _httpClient = new HttpClient();
-            _httpClient.Timeout = TimeSpan.FromSeconds(5); 
+            // Keep a short timeout so we don't block too long waiting for a model when the user keeps typing
+            _httpClient.Timeout = TimeSpan.FromSeconds(5);
         }
 
         public async Task WarmupAsync()
         {
-            Debug.WriteLine("--- Starting Ollama Warmup ---");
-            var sw = Stopwatch.StartNew();
+            try
+            {
+                Debug.WriteLine("Warmup: starting remote warmup calls");
+                await GetNextWordAsyncRemote("Warmup", CancellationToken.None);
 
-            // Leerer Request zum Laden
-            await GetNextWordAsync("Warmup", new CancellationToken());
-
-            sw.Stop();
-            Debug.WriteLine($"--- Warmup finished in {sw.ElapsedMilliseconds} ms ---");
+                Debug.WriteLine("Warmup: second remote warmup call");
+                await GetNextWordAsyncRemote("Warmup", CancellationToken.None);
+            }
+            catch { }
         }
 
-        public async Task<string> GetNextWordAsync(string context, CancellationToken cancellationToken)
+        public async Task<string?> GetNextWordAsyncRemote(string context, CancellationToken cancellationToken)
+        {
+            try
+            {
+                var swRemote = Stopwatch.StartNew();
+                
+                var messages = new ChatMessage[]
+                {
+                    new SystemChatMessage(
+                        "You are a precise autocomplete engine. " +
+                        "Your task: complete the user's input exactly 5 suggestions, where each suggestion is one word and separated by this delimiter: '|' " +
+                        "Format (Suggestion): word1|word2|word3|word4|word5 " +
+                        "Rules: No explanations. No punctuation. No polite conversation. Only the words in the specified format."),
+
+                    new UserChatMessage($"Input: {context}")
+                };
+
+                var options = new ChatCompletionOptions
+                {
+                    Temperature = 0.1f,
+                    MaxOutputTokenCount = 40,   
+                    TopP = 1.0f,
+                    StopSequences = { "\n", "Input:" }
+                };
+
+                ChatCompletion completion = await _client.CompleteChatAsync(messages, options, cancellationToken);
+
+                string result = completion.Content[0].Text.Trim();
+
+                swRemote.Stop();
+                Debug.WriteLine($"OpenAI: {result} (elapsed {swRemote.ElapsedMilliseconds} ms)");
+
+                return result;
+            }
+            catch (ClientResultException ex) when (ex.Status == 401)
+            {
+                Debug.WriteLine("OpenAI API Key expired/wrong/missing!");
+                return null;
+            }
+            catch (TaskCanceledException)
+            {
+                return null;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"OpenAI Error: {ex.Message}");
+                return null;
+            }
+        }
+
+        public async Task<string> GetNextWordAsyncLocal(string context, CancellationToken cancellationToken)
         {
             try
             {
@@ -64,11 +121,33 @@ namespace TypeAssist.Services
                     }
                 };
 
+                Debug.WriteLine($"Local LLM: posting to {ApiUrl}");
+                Debug.WriteLine($"Local LLM: payload model={payload.Model}, num_predict={payload.Options.NumPredict}, temp={payload.Options.Temperature}");
+
+                var sw = Stopwatch.StartNew();
                 var response = await _httpClient.PostAsJsonAsync(ApiUrl, payload, cancellationToken);
+                sw.Stop();
 
-                if (!response.IsSuccessStatusCode) return null;
+                Debug.WriteLine($"Local LLM: response status {response.StatusCode} (elapsed {sw.ElapsedMilliseconds} ms)");
 
-                var result = await response.Content.ReadFromJsonAsync<OllamaResponse>(cancellationToken: cancellationToken);
+                var raw = await response.Content.ReadAsStringAsync(cancellationToken);
+                Debug.WriteLine($"Local LLM raw response: {raw}");
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    Debug.WriteLine("Local LLM: non-success status code returned");
+                    return null;
+                }
+
+                var result = System.Text.Json.JsonSerializer.Deserialize<OllamaResponse>(raw);
+
+                if (result == null)
+                {
+                    Debug.WriteLine("Local LLM: failed to deserialize response into OllamaResponse");
+                    return null;
+                }
+
+                Debug.WriteLine($"Local LLM: parsed response='{result.Response}' done={result.Done}");
 
                 return result?.Response?.Trim();
             }

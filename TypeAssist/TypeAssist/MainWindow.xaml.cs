@@ -4,6 +4,8 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Threading;
+using TypeAssist.Services;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace TypeAssist
 {
@@ -46,8 +48,7 @@ namespace TypeAssist
                 Debug.WriteLine("HandleNewInputAsync: Requesting suggestion from LlmService...");
 
 
-
-                var rawSuggestion = await App.LlmService.GetNextWordAsync(currentText, token);
+                var rawSuggestion = await App.LlmService.GetNextWordAsyncRemote(currentText, token);
 
                 sw.Stop();
                 Debug.WriteLine($"HandleNewInputAsync: LLM request finished in {sw.ElapsedMilliseconds} ms. Suggestion='{rawSuggestion}'");
@@ -57,34 +58,41 @@ namespace TypeAssist
                 {
                     var suggestions = rawSuggestion.Split('|', StringSplitOptions.RemoveEmptyEntries)
                                            .Select(s => s.Trim())
-                                           .ToArray();
+                                           .ToList();
 
-                    Dispatcher.Invoke(() =>
+                    var filteredSuggestions = Traveldistance.GetTravelDistanceAdjustedSuggestions(currentText, suggestions);
+
+                    if (filteredSuggestions.Count > 0)
                     {
-                        ListBox listBox = GenerateListBox(suggestions);
-                        testPopup.Child = listBox;
-                        testPopup.IsOpen = true;
-
-                        TypeAssistForeground();
-
-                        listBox.Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() =>
+                        Dispatcher.Invoke(() =>
                         {
-                            if (listBox.Items.Count > 0)
-                            {
-                                listBox.SelectedIndex = 0;
+                            ListBox listBox = GenerateListBox(filteredSuggestions.ToArray());
+                            testPopup.Child = listBox;
+                            testPopup.IsOpen = true;
 
-                                //var item = (ListBoxItem)listBox.ItemContainerGenerator.ContainerFromIndex(0);
-                                //item?.Focus();
-                                listBox.Focus();
-                            }
-                            else
-                            {
-                                listBox.Focus();
-                            }
-                        }));
-                        Debug.WriteLine("HandleNewInputAsync: Popup opened with suggestion");
+                            TypeAssistForeground();
 
-                    });
+                            listBox.Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() =>
+                            {
+                                if (listBox.Items.Count > 0)
+                                {
+                                    listBox.SelectedIndex = 0;
+
+                                    var item = (ListBoxItem)listBox.ItemContainerGenerator.ContainerFromIndex(0);
+                                    item?.Focus();
+                                }
+                                else
+                                {
+                                    listBox.Focus();
+                                }
+                            }));
+                            Debug.WriteLine("HandleNewInputAsync: Popup opened with suggestion");
+
+                        });
+
+                    }
+
+                    
                 }
             }
             catch (OperationCanceledException) 

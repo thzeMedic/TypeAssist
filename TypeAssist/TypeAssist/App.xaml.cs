@@ -25,7 +25,6 @@ namespace TypeAssist
             // 2. Warmup im Hintergrund starten (Fire and Forget)
             // Wir warten nicht darauf (kein await), damit das Fenster sofort aufgeht.
             _ = LlmService.WarmupAsync();
-
             // Das MainWindow öffnet sich automatisch durch die App.xaml Konfiguration
         }
     }

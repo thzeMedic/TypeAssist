@@ -11,6 +11,7 @@
   <ItemGroup>
     <PackageReference Include="DeftSharp.Windows.Input" Version="0.10.0" />
     <PackageReference Include="InputSimulatorPlus" Version="1.0.7" />
+    <PackageReference Include="OpenAI" Version="2.8.0" />
   </ItemGroup>
 
 </Project>

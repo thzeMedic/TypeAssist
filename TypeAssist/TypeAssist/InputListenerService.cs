@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows.Input;
+using TypeAssist.Services;
 
 namespace TypeAssist
 {
@@ -26,7 +27,7 @@ namespace TypeAssist
             Key.A, Key.B, Key.C, Key.D, Key.E, Key.F, Key.G,
             Key.H, Key.I, Key.J, Key.K, Key.L, Key.M, Key.N,
             Key.O, Key.P, Key.Q, Key.R, Key.S, Key.T, Key.U,
-            Key.V, Key.W, Key.X, Key.Y, Key.Z,
+            Key.V, Key.W, Key.X, Key.Y, Key.Z, 
             Key.D0, Key.D1, Key.D2, Key.D3, Key.D4,
             Key.D5, Key.D6, Key.D7, Key.D8, Key.D9, 
             Key.Space, Key.Enter, Key.Back, Key.Tab, Key.OemComma, Key.OemPeriod
@@ -35,8 +36,9 @@ namespace TypeAssist
         private static KeyConverter _keyconverter = new KeyConverter();
 
         private static CancellationTokenSource _cts;
-
+        private static Key _lastKeyPressed = Key.None; 
         private static Dictionary<Key, DateTime> _lastKeyPressTimes = new Dictionary<Key, DateTime>();
+        private static int _travelDistanceTilLastKey = -1;
 
         public static void Subscribe(List<char> buffer, List<string> processes, Action<string> onBufferChanged)
         {
@@ -105,8 +107,16 @@ namespace TypeAssist
                             {
 
                                 charToAdd = keyChar;
+                                if (_lastKeyPressed.ToString() != null)
+                                {
+                                    _travelDistanceTilLastKey = Traveldistance.CalcTravelDistance(_lastKeyPressed.ToString(), charToAdd.ToString());
+                                }
+
+                                Debug.WriteLine($"TravelDistance: {_travelDistanceTilLastKey}");
 
                             }
+
+                            _lastKeyPressed = pressedKey;
                             break;
                     }
  
