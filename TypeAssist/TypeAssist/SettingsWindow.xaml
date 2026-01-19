@@ -18,7 +18,7 @@
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-        
+
         <Label Content="Mode: " 
                Grid.Column="0" Grid.Row="0" 
                VerticalAlignment="Center" HorizontalAlignment="Right" Margin="5"/>
@@ -26,7 +26,7 @@
                   Grid.Column="1" Grid.Row="0"
                   SelectedItem="{Binding Mode}"
                   Height="25" Width="100" HorizontalAlignment="Left" Margin="5"/>
-        
+
         <Label Content="Vorschlagposition:" 
                Grid.Column="0" Grid.Row="1" 
                HorizontalAlignment="Right" VerticalAlignment="Top" Margin="5"/>
@@ -45,7 +45,17 @@
                   Grid.Column="1" Grid.Row="2"
                   HorizontalAlignment="Left" VerticalAlignment="Center" Margin="5"/>
 
-       
+        <Label Content="Remote LLM" 
+        Grid.Column="0" Grid.Row="3" 
+        HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,9,10,0"
+        ToolTip="Uses chatgpt-4o-mini for word suggestions."/>
+        <CheckBox x:Name="remoteLlmCheckbox"
+           IsChecked="{Binding UseRemoteLlm}"
+           Content="Aktivieren"
+           Grid.Column="1" Grid.Row="3"
+           HorizontalAlignment="Left" VerticalAlignment="Top" Margin="5,15,0,0"/>
+
+
         <Button x:Name="Save" Content="Save"
                 Grid.Column="1" Grid.Row="3"
                 VerticalAlignment="Bottom" Width="75"

@@ -27,7 +27,7 @@ namespace TypeAssist
             Key.A, Key.B, Key.C, Key.D, Key.E, Key.F, Key.G,
             Key.H, Key.I, Key.J, Key.K, Key.L, Key.M, Key.N,
             Key.O, Key.P, Key.Q, Key.R, Key.S, Key.T, Key.U,
-            Key.V, Key.W, Key.X, Key.Y, Key.Z, 
+            Key.V, Key.W, Key.X, Key.Y, Key.Z,
             Key.D0, Key.D1, Key.D2, Key.D3, Key.D4,
             Key.D5, Key.D6, Key.D7, Key.D8, Key.D9,
             Key.Space, Key.Enter, Key.Back, Key.Tab, Key.OemComma, Key.OemPeriod
@@ -36,7 +36,7 @@ namespace TypeAssist
         private static KeyConverter _keyconverter = new KeyConverter();
         private static bool clearBuffer = false;
         private static CancellationTokenSource _cts;
-        private static Key _lastKeyPressed = Key.None; 
+        private static Key _lastKeyPressed = Key.None;
         private static Dictionary<Key, DateTime> _lastKeyPressTimes = new Dictionary<Key, DateTime>();
         private static int _travelDistanceTilLastKey = -1;
 
@@ -75,6 +75,7 @@ namespace TypeAssist
                 _keyboardListener.Subscribe(keyEnum, pressedKey =>
                 {
                     if (IgnoreInput) return;
+
                     if (IsDebounced(pressedKey)) return;
 
                     var process = GetForegroundProcessName();
@@ -84,7 +85,7 @@ namespace TypeAssist
                         HandleBackspace(buffer, processes, process);
                     }
 
-                    if (pressedKey == Key.Tab && process == "TypeAssist") return; 
+                    if (pressedKey == Key.Tab && process == "TypeAssist") return;
 
                     char? charToAdd = MapKeyToChar(pressedKey);
 
@@ -93,9 +94,12 @@ namespace TypeAssist
                         ProcessInput(buffer, processes, process, charToAdd.Value, onBufferChanged);
                     }
 
-                    if (_travelDistanceTilLastKey.ToString() != null)
+                    string charString = charToAdd.HasValue ? charToAdd.Value.ToString().ToUpper() : "";
+                    string lastKeyString = _lastKeyPressed.ToString().ToUpper();
+
+                    if (!string.IsNullOrEmpty(charString))
                     {
-                        _travelDistanceTilLastKey = Traveldistance.CalcTravelDistance(_lastKeyPressed.ToString(), charToAdd.ToString());
+                        _travelDistanceTilLastKey = Traveldistance.CalcTravelDistance(lastKeyString, charString);
                     }
 
                     Debug.WriteLine($"TravelDistance : {_travelDistanceTilLastKey}");
@@ -168,7 +172,7 @@ namespace TypeAssist
                 _ => TryConvertToString(key)
             };
         }
-        
+
         /// <summary>
         /// Attempts to convert the specified key to its corresponding character representation.
         /// </summary>
@@ -197,20 +201,24 @@ namespace TypeAssist
         /// list and may trigger additional actions if it equals "TypeAssist".</param>
         private static void HandleBackspace(List<char> buffer, List<string> processes, string process)
         {
-            if (buffer.Count > 0)
+
+            lock (buffer)
             {
-                buffer.RemoveAt(buffer.Count - 1);
-                Debug.WriteLine("Backspace Pressed. Removed last character.");
-
-                if (process != null)
+                if (buffer.Count > 0)
                 {
-                    processes.Add(process);
-                }
+                    buffer.RemoveAt(buffer.Count - 1);
+                    Debug.WriteLine("Backspace Pressed. Removed last character.");
 
-                if (process == "TypeAssist")
-                {
-                    NoCompletion(processes);
-                    CompletionService.EmulateBackspace();
+                    if (process != null)
+                    {
+                        processes.Add(process);
+                    }
+
+                    if (process == "TypeAssist")
+                    {
+                        NoCompletion(processes);
+                        CompletionService.EmulateBackspace();
+                    }
                 }
             }
         }
@@ -229,41 +237,54 @@ namespace TypeAssist
         /// be null if no notification is required.</param>
         private static void ProcessInput(List<char> buffer, List<string> processes, string process, char charToAdd, Action<string> onBufferChanged)
         {
-            if (process != null)
+            // dont even add typeassist to the process list we dont want
+            // to focous it again
+            if (process != null && process != "TypeAssist")
             {
                 processes.Add(process);
-                if (processes.Count > 50) processes.RemoveAt(0); 
+                if (processes.Count > 50) processes.RemoveAt(0);
             }
 
             if (process == "TypeAssist")
             {
                 NoCompletion(processes);
                 CompletionService.EmulateSingleKey(charToAdd);
-                buffer.Add(charToAdd);
+                lock (buffer)
+                {
+                    buffer.Add(charToAdd);
+                    onBufferChanged?.Invoke(new string(buffer.ToArray()));
+                }
                 return;
             }
 
-            buffer.Add(charToAdd);
+            string currentText;
 
-            try
+            lock (buffer)
             {
-                var settings = ConfigService.GetSettings();
-                if (charToAdd == ' ' && (settings.Mode == "Silben" || settings.Mode == "Buchstaben"))
+                buffer.Add(charToAdd);
+
+                try
+                {
+                    var settings = ConfigService.GetSettings();
+                    if (charToAdd == ' ' && (settings.Mode == "Silben" || settings.Mode == "Buchstaben"))
+                    {
+                        buffer.Clear();
+                        Debug.WriteLine($"[InputListener] Buffer cleared because of Space in Mode '{settings.Mode}'");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[InputListener] Error checking settings: {ex.Message}");
+                }
+
+                if (clearBuffer)
                 {
                     buffer.Clear();
-                    Debug.WriteLine($"[InputListener] Buffer cleared because of Space in Mode '{settings.Mode}'");
+                    Debug.WriteLine("Buffer has been cleared.");
+                    clearBuffer = false;
                 }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[InputListener] Error checking settings: {ex.Message}");
-            }
 
-            if (clearBuffer)
-            {
-                buffer.Clear();
-                Debug.WriteLine("Buffer has been cleared.");
-                clearBuffer = false;
+                currentText = new string(buffer.ToArray());
             }
 
             if (_cts != null)
@@ -273,8 +294,6 @@ namespace TypeAssist
             }
 
             _cts = new CancellationTokenSource();
-
-            string currentText = new string(buffer.ToArray());
 
             onBufferChanged?.Invoke(currentText);
         }
@@ -287,19 +306,24 @@ namespace TypeAssist
         /// <param name="processes">a list of processes to get the last window before a recommendation was given.</param>
         private static void NoCompletion(List<string> processes)
         {
-            IntPtr handleEmulation;
+            // change: take the last process that is not TypeAssist
+            string targetProcessName = processes.LastOrDefault(p => p != "TypeAssist");
 
-            if (processes.Count == 1)
+            if (string.IsNullOrEmpty(targetProcessName)) return; 
+
+            IntPtr handleEmulation = IntPtr.Zero;
+
+            Process[] targetProcesses = Process.GetProcessesByName(targetProcessName);
+
+            if (targetProcesses.Length > 0)
             {
-                Process[] notTypeAssist = Process.GetProcessesByName(processes[0]);
-                handleEmulation = notTypeAssist[0].MainWindowHandle;
+                handleEmulation = targetProcesses[0].MainWindowHandle;
+
+                if (handleEmulation != IntPtr.Zero)
+                {
+                    SetForegroundWindow(handleEmulation);
+                }
             }
-            else
-            {
-                Process[] notTypeAssist = Process.GetProcessesByName(processes[processes.Count - 2]);
-                handleEmulation = notTypeAssist[0].MainWindowHandle;
-            }
-            SetForegroundWindow(handleEmulation);
         }
     }
 }

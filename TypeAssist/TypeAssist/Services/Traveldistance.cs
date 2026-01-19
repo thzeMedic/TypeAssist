@@ -12,7 +12,7 @@ namespace TypeAssist.Services
         {
             {"Q", (0, 0)}, {"W", (1, 0)}, {"E", (2, 0)}, {"R", (3, 0)}, {"T", (4, 0)},
             {"Z", (5, 0)}, {"U", (6, 0)}, {"I", (7, 0)}, {"O", (8, 0)}, {"P", (9, 0)},
-            {"Ü", (10, 0)}, {"ß", (11, -1)}, // ß etwas versetzt
+            {"Ü", (10, 0)}, {"ß", (11, -1)}, 
             
             {"A", (0, 1)}, {"S", (1, 1)}, {"D", (2, 1)}, {"F", (3, 1)}, {"G", (4, 1)},
             {"H", (5, 1)}, {"J", (6, 1)}, {"K", (7, 1)}, {"L", (8, 1)}, {"Ö", (9, 1)}, {"Ä", (10, 1)},
@@ -20,7 +20,7 @@ namespace TypeAssist.Services
             {"Y", (1, 2)}, {"X", (2, 2)}, {"C", (3, 2)}, {"V", (4, 2)}, {"B", (5, 2)},
             {"N", (6, 2)}, {"M", (7, 2)},
 
-            {" ", (4, 3)} // Space simulieren wir mittig unter der Tastatur
+            {" ", (4, 3)} 
         };
 
         public static List<string> GetTravelDistanceAdjustedSuggestions(string currentInput, List<string> suggestions)
@@ -74,7 +74,14 @@ namespace TypeAssist.Services
 
         public static int CalcTravelDistance(string fromKey, string toKey)
         {
-            // Debugging für fehlende Keys
+            if (string.IsNullOrEmpty(fromKey) || string.IsNullOrEmpty(toKey))
+            {
+                return 99;
+            }
+
+            fromKey = fromKey.ToUpper();
+            toKey = toKey.ToUpper();
+
             if (!keyCoordinatesQWERTZ.ContainsKey(fromKey))
             {
                 Debug.WriteLine($"[TD] WARN: Key '{fromKey}' not in map. Returning 99.");
@@ -89,8 +96,7 @@ namespace TypeAssist.Services
             var start = keyCoordinatesQWERTZ[fromKey];
             var end = keyCoordinatesQWERTZ[toKey];
 
-            int distance = Math.Abs(start.x - end.x) + Math.Abs(start.y - end.y);
-            return distance;
+            return Math.Abs(start.x - end.x) + Math.Abs(start.y - end.y);
         }
     }
 }

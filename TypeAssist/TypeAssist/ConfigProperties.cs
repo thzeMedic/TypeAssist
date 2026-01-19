@@ -22,6 +22,13 @@ namespace TypeAssist
             set { this["UseTravelDistance"] = value; }
         }
 
+        [ConfigurationProperty("UseRemoteLlm", DefaultValue = true)]
+        public bool UseRemoteLlm
+        {
+            get { return (bool)this["UseRemoteLlm"]; }
+            set { this["UseRemoteLlm"] = value; }
+        }
+
         [ConfigurationProperty("SuggestionPosition", DefaultValue = "Maus")]
         public string SuggestionPosition
         {
